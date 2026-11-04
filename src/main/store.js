@@ -5,23 +5,14 @@ const path = require('path')
 
 const DEFAULTS = {
   settings: {
-    backend: process.platform === 'win32' ? 'dsh' : 'codex',
-    codexExe: '',
-    codexModel: '',
-    codexEffort: '',
-    codexGlanceModel: '',
-    codexGlanceEffort: '',
+    claudeExe: '', // '' -> look for `claude` on PATH and in the usual install folders
+    claudeModel: '', // '' -> Claude Code's default; an alias (sonnet / opus / haiku) or a full model name
+    claudeEffort: '', // '' -> default; low | medium | high | xhigh | max
+    claudeGlanceModel: '', // screen looks and background jobs; '' = same as chat
+    claudeGlanceEffort: '',
     scale: 1.5,
-    permission: process.platform === 'win32' ? 'workspace-write' : 'read-only', // preserve the original Windows first-run policy
-    provider: '', // empty -> inherit from the source DSH profile
-    model: '',
-    reasoningEffort: '', // empty -> inherit from the source DSH profile
-    sourceProfile: 'desktop',
+    permission: 'read-only', // read-only | workspace-write | danger-full-access
     cwd: '',
-    dshExe: '',
-    dshWebUrl: 'http://127.0.0.1:31787',
-    loadAgentsMd: false,
-    loadSkills: false,
     hotkey: 'CommandOrControl+Alt+Q',
     gravity: true,
     wander: true,
@@ -48,8 +39,6 @@ const DEFAULTS = {
     climbWindows: true,
     idleActions: true,
     summaryTime: '18:30', // '' disables the daily summary
-    glanceModel: '', // 'provider::model' for screen looks and autonomy decisions; '' = same as chat
-    glanceEffort: '',
     weatherCity: '', // '' = no weather (nothing is fetched)
     agendaPerDay: 6, // background jobs she may start on her own per day (0 = none)
     morningBrief: true,
@@ -75,6 +64,8 @@ const DEFAULTS = {
 }
 
 const DEFAULT_RULES = DEFAULTS.settings.rules
+/** Settings of the removed Codex / DeepSeek Harness backends. */
+const OBSOLETE_SETTINGS = ['backend', 'codexExe', 'codexModel', 'codexEffort', 'codexGlanceModel', 'codexGlanceEffort', 'provider', 'model', 'reasoningEffort', 'sourceProfile', 'dshExe', 'dshWebUrl', 'loadAgentsMd', 'loadSkills', 'glanceModel', 'glanceEffort']
 
 class Store {
   constructor(dir) {
@@ -89,11 +80,8 @@ class Store {
       if (Array.isArray(v)) this.data[k] = Array.isArray(data[k]) ? data[k] : []
       else this.data[k] = { ...v, ...(data[k] || {}) }
     }
-    // Upgrading an existing installation must not switch its agent or model.
-    if (data.settings && !data.settings.backend) {
-      this.data.settings.backend = 'dsh'
-      if (!data.settings.permission) this.data.settings.permission = 'workspace-write'
-    }
+    // Older versions ran on Codex or DeepSeek Harness: drop their settings (permission and work folder stay).
+    for (const key of OBSOLETE_SETTINGS) delete this.data.settings[key]
     // Nested defaults: keep rules added in newer versions.
     this.data.settings.rules = { ...DEFAULT_RULES, ...(this.data.settings.rules || {}) }
     this.timer = null
@@ -127,4 +115,4 @@ class Store {
   }
 }
 
-module.exports = { Store, DEFAULTS, DEFAULT_RULES }
+module.exports = { Store, DEFAULTS, DEFAULT_RULES, OBSOLETE_SETTINGS }

@@ -1,5 +1,5 @@
 'use strict'
-// Background DeepSeek Harness jobs she starts on her own:
+// Background Claude Code jobs she starts on her own:
 //   reflect – consolidate memories, rewrite her growth notes, write a diary entry (while you are away)
 //   brief   – a short morning brief right after your first activity of the day
 //   pulse   – a read-only look at recently changed projects in the work folder (once a day, while away)
@@ -79,7 +79,7 @@ class Agenda {
   /** Called every few seconds by the brain. Starts at most one job and never waits for it. */
   tick(now = Date.now()) {
     const pet = this.pet
-    if (this.running || pet.rule('agenda') === 'off' || !pet.hasDsh()) return
+    if (this.running || pet.rule('agenda') === 'off' || !pet.hasAgent()) return
     if (pet.isQuiet() || pet.chatBusy() || pet.bgBusy() || this.budgetLeft() <= 0) return
     const job = this.dueJob(now)
     if (job) this.run(job, now)

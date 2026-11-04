@@ -30,7 +30,7 @@ function fakePet({ settings = {}, growth = {}, idle = 30, acts = 0, actsAt = at(
     settings: () => data.settings,
     rule: (n) => data.settings.rules[n] || 'auto',
     idleSec: () => idle,
-    hasDsh: () => true,
+    hasAgent: () => true,
     isQuiet: () => false,
     chatBusy: () => false,
     bgBusy: () => false,

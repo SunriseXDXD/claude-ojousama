@@ -46,8 +46,7 @@ const electron = {
 const context = {
   require(name) {
     if (name === 'electron') return electron
-    if (name === './codex') return { CodexRun: FakeRun, locateCodex: () => ({ exe: '/test/codex' }) }
-    if (name === './dsh') return { DshRun: FakeRun, locateDsh: () => ({ exe: '/test/dsh' }), writePetPatch: () => ({}), DSH_HOME: __dirname, TOOLSETS: { look: [], none: [], scan: [] } }
+    if (name === './claude') return { ...localRequire('./claude'), ClaudeRun: FakeRun, locateClaude: () => ({ exe: '/test/claude' }) }
     if (name === './screen') return { ScreenSense: class { static remove() {} } }
     return localRequire(name)
   },
@@ -59,7 +58,7 @@ const context = {
 vm.createContext(context)
 vm.runInContext(source + `
 globalThis.testMain = {
-  startRun, snapshot, glance, requestAgentApproval, requestAgentInput, refreshScreenCapabilities, createPetWindow, togglePet,
+  startRun, snapshot, glance, setSettings, refreshScreenCapabilities, createPetWindow, togglePet,
   initialize(data, sense) {
     store = { get: k => data[k], set: (k,v) => data[k]=v, patch: (k,p) => data[k]={...data[k],...p} };
     screenSense = sense;
@@ -69,7 +68,7 @@ globalThis.testMain = {
   }
 };`, context, { filename: file })
 const main = context.testMain
-const data = { ...structuredClone(DEFAULTS), settings: { backend: 'codex', permission: 'read-only', rules: {screen:'auto'}, cwd: '', scale: 1.5 }, pet: {}, chat: {messages:[]}, activity: [], goals: [], todos: [], reminders: [], tasks: [], memories: [], alerts: [], inbox: [] }
+const data = { ...structuredClone(DEFAULTS), settings: { permission: 'read-only', rules: {screen:'auto'}, cwd: '', scale: 1.5 }, pet: {}, chat: {messages:[]}, activity: [], goals: [], todos: [], reminders: [], tasks: [], memories: [], alerts: [], inbox: [] }
 const manualImage = { synthetic: true }
 let savedImage
 const capabilities = { platform: 'linux', session: 'wayland', foreground: false, windows: false, manualCapture: true, screenCapture: false, ocr: true, reason: 'manual only' }
@@ -83,44 +82,36 @@ const sense = {
 main.initialize(data, sense)
 
 ;(async () => {
+  const { buildArgs } = localRequire('./claude')
   const run = main.startRun({ prompt: 'hi', sessionId: 'legacy-dsh-id' })
-  assert.equal(run.options.sessionId, null)
-  assert.equal(run.options.scanRoot, '')
-  assert.equal(run.options.codex.exe, '/test/codex')
+  assert.equal(run.options.claude.exe, '/test/claude')
+  assert.equal(run.options.workspace, false)
+  assert.ok(!buildArgs(run.options).includes('--resume'), 'ids from the old backends are never resumed')
+  assert.ok(buildArgs(main.startRun({ prompt: 'again', sessionId: 'claude:abc' }).options).includes('--resume'))
+  assert.match(run.options.persona, /Claude Ojousama/)
   data.settings.permission = 'workspace-write'
   assert.throws(() => main.startRun({prompt:'edit'}), /工作目录/)
   data.settings.cwd = '/work'
   assert.equal(main.startRun({prompt:'edit'}).options.cwd, '/work')
-  data.settings.backend = 'dsh'
-  assert.equal(main.startRun({prompt:'legacy',sessionId:'legacy-dsh-id'}).options.sessionId, 'legacy-dsh-id')
-  assert.equal(main.startRun({prompt:'switch',sessionId:'codex:thread'}).options.sessionId, null)
-  assert.equal(main.startRun({prompt:'passive',tools:'none',permission:'danger-full-access'}).options.permission, 'read-only')
-  data.settings.backend = 'codex'
+  const passive = main.startRun({prompt:'passive',tools:'none',permission:'danger-full-access',persist:false}).options
+  assert.deepEqual([passive.permission, passive.tools, passive.persist], ['read-only', 'none', false])
   data.settings.permission = 'read-only'
+  main.setSettings({ permission: 'bogus', claudeModel: 'haiku' })
+  assert.equal(data.settings.permission, 'read-only')
+  assert.equal(data.settings.claudeModel, 'haiku')
   const info = { manual:true, hwnd:'screen:1:0', title:'Test screen', process:'test', own:false, shell:false, bounds:{x:0,y:0,width:800,height:600} }
   const result = await main.glance('user', {info, manualImage, keepImage:true})
   assert.equal(savedImage, manualImage)
   assert.equal(result.image, '/synthetic-shot.jpg')
   assert.equal(runs.at(-1).options.images[0], '/synthetic-shot.jpg')
+  assert.equal(runs.at(-1).options.tools, 'look')
   assert.doesNotMatch(runs.at(-1).options.prompt, /read_image/)
   const snap = main.snapshot()
-  assert.equal(snap.backendName, 'Codex')
+  assert.equal(snap.backendName, 'Claude Code')
   assert.equal(snap.backendFound, true)
+  assert.equal(snap.backendPath, '/test/claude')
   assert.equal(snap.screenCapabilities, capabilities)
   assert.equal(await main.refreshScreenCapabilities(), capabilities)
-  const responses = []
-  const approvalRun = { done:false, respondApproval:(...args)=>responses.push(args) }
-  await main.requestAgentApproval(approvalRun, {id:1,canAccept:true,command:'echo test',permissions:{network:{enabled:true}}})
-  assert.deepEqual(responses, [[1,'decline']])
-  assert.match(dialogs.at(-1).detail, /network/)
-  assert.ok(dialogs.at(-1).signal, 'approval dialogs close by themselves (timeout / run end)')
-  assert.doesNotMatch(dialogs.at(-1).message, /echo test/) // agent text is detail, never the heading
-  await main.requestAgentApproval(approvalRun, {id:2,canAccept:false})
-  assert.deepEqual(responses.at(-1), [2,'decline'])
-  const answers = []
-  await main.requestAgentInput({done:false,respondUserInput:(id,value)=>answers.push({id,value})}, {id:3,questions:[{id:'q',question:'Choose',options:[{label:'A',description:'First'}]}]})
-  assert.equal(answers[0].id,3)
-  assert.deepEqual(Object.keys(answers[0].value),[])
   assert.equal(desktopMode('linux',{WAYLAND_DISPLAY:'wayland-0',DISPLAY:':1'}).xwayland,true)
   assert.equal(desktopMode('linux',{WAYLAND_DISPLAY:'wayland-0'}).floating,false)
   assert.equal(desktopMode('linux',{DISPLAY:':0'}).floating,true)
@@ -151,5 +142,5 @@ main.initialize(data, sense)
     setAutoStart({isPackaged:false,setLoginItemSettings:settings=>login.push(settings)},true,'/source',{platform:'darwin',executable:'/Electron'})
     assert.deepEqual(login,[{openAtLogin:true,path:'/Electron',args:['/source']}])
   } finally { fs.rmSync(startupDir,{recursive:true,force:true}) }
-  console.log('PASS main backend, manual-image, capability, approval and desktop-mode integration')
+  console.log('PASS main Claude backend, manual-image, capability and desktop-mode integration')
 })().catch(error => { console.error(error); process.exitCode=1 })

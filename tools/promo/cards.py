@@ -199,7 +199,7 @@ def card_growth():
 # ------------------------------------------------------------------ 6 background work
 
 def card_agenda():
-    img, d = base("你不在时，她在帮你做事", "她自己开 DeepSeek Harness 后台任务", 6)
+    img, d = base("你不在时，她在帮你做事", "她自己开 Claude Code 后台任务", 6)
     items = [
         ("☀️ 今日简报", "今天最要紧的是周报，16:00 截止，还剩一个半小时，这会儿动手正好～上海晚点有雨，出门记得带伞。", "wave"),
         ("🔍 工作区巡检", "claude-ojousama 有 19 个改动还没提交，新文件也没 git add，要我帮你记成待办吗？", "magnify"),
@@ -241,7 +241,7 @@ def card_gallery():
 # ------------------------------------------------------------------ 8 install
 
 def card_install():
-    img, d = base("开源免费，装上就能用", "Windows 10/11 · 内核 DeepSeek Harness", 8)
+    img, d = base("开源免费，装上就能用", "Windows · macOS · Linux · 内核 Claude Code", 8)
     term = window(img, (60, 260, 1020, 700), "PowerShell", k=3, dark=True)
     f = mono(30)
     lines = [("> git clone https://github.com/", (157, 255, 157)), ("    Silasvanceneo/claude-ojousama", (157, 255, 157)), ("> cd claude-ojousama", (220, 220, 220)),
@@ -249,7 +249,7 @@ def card_install():
     for i, (t, c) in enumerate(lines):
         d.text((term[0] + 30, term[1] + 30 + i * 52), t, font=f if i < 5 else font(30), fill=c)
     y = 760
-    for t in ["沿用你在 DeepSeek Harness 里配置的模型", "每种主动行为都能设：自动 / 先问我 / 禁止", "记忆、日记只存在本机", "MIT 开源 · 粉丝向个人项目"]:
+    for t in ["沿用你在 Claude Code 里的登录和模型", "每种主动行为都能设：自动 / 先问我 / 禁止", "记忆、日记只存在本机", "MIT 开源 · 粉丝向个人项目"]:
         d.text((80, y), "✅ " + t, font=font(32), fill=INK)
         y += 64
     paste_sprite(img, "thumbsup", 0.3, 3, 905, 1330)

@@ -282,9 +282,6 @@ function renderScreenCapabilities() {
 
 function renderSettings() {
   const s = snap.settings
-  const backend = s.backend || 'dsh'
-  for (const group of $$('[data-backend]')) group.hidden = group.dataset.backend !== backend
-  $('#open-web').hidden = backend !== 'dsh'
   for (const input of $$('[data-key]')) {
     if (document.activeElement === input) continue
     const v = s[input.dataset.key]
@@ -297,37 +294,13 @@ function renderSettings() {
   for (const ta of $$('[data-list]')) {
     if (document.activeElement !== ta) ta.value = (s[ta.dataset.list] || []).join('\n')
   }
-  const gsel = $('#glance-model')
-  if (document.activeElement !== gsel) {
-    gsel.innerHTML = ''
-    gsel.append(el('option', { value: '' }, '跟随聊天用的模型'))
-    for (const [prov, models] of Object.entries(snap.models || {})) {
-      const g = el('optgroup', { label: prov })
-      for (const m of models) g.append(el('option', { value: `${prov}::${m}` }, m))
-      gsel.append(g)
-    }
-    gsel.value = s.glanceModel || ''
-  }
   const paused = snap.screenPausedUntil > Date.now()
   $('#screen-pause').textContent = paused ? '恢复看屏幕' : '1 小时内别看'
   $('#screen-state').textContent = paused ? `暂停到 ${fmt(snap.screenPausedUntil, false)}` : ''
   $('#scale-val').textContent = `×${s.scale}`
-  const sel = $('#model-select')
-  sel.innerHTML = ''
-  const dm = snap.defaultModel || {}
-  sel.append(el('option', { value: '' }, `跟随 DSH 默认（${dm.provider || '?'} / ${dm.model || '?'}）`))
-  for (const [prov, models] of Object.entries(snap.models || {})) {
-    const g = el('optgroup', { label: prov })
-    for (const m of models) g.append(el('option', { value: `${prov}::${m}` }, m))
-    sel.append(g)
-  }
-  sel.value = s.provider && s.model ? `${s.provider}::${s.model}` : ''
-  const name = snap.backendName || (backend === 'codex' ? 'Codex' : 'DeepSeek Harness')
-  const found = snap.backendFound == null ? snap.dshFound : snap.backendFound
-  const path = snap.backendPath || (backend === 'dsh' ? snap.dshPath : '')
-  $('#backend-status').textContent = found
-    ? `已找到 ${name}：${path}`
-    : backend === 'codex' ? '未找到 Codex CLI。安装后运行 codex login，或选择路径。' : '未找到 DeepSeek Harness，请选择路径。'
+  $('#backend-status').textContent = snap.backendFound
+    ? `已找到 ${snap.backendName || 'Claude Code'}：${snap.backendPath}`
+    : '未找到 Claude Code。安装后在终端运行 claude 登录，或选择 claude 的路径。'
   renderScreenCapabilities()
 }
 
@@ -377,7 +350,6 @@ $('#chat-new').addEventListener('click', () => {
   renderedChatCount = -1
   pet.invoke('chat:new')
 })
-$('#open-web').addEventListener('click', () => pet.invoke('open:web'))
 
 $('#todo-form').addEventListener('submit', (e) => {
   e.preventDefault()
@@ -462,21 +434,13 @@ $('#goal-form').addEventListener('submit', (e) => {
 $('#goal-every').addEventListener('change', () => {
   $('#goal-at').style.display = $('#goal-every').value === 'daily' ? '' : 'none'
 })
-$('#model-select').addEventListener('change', (e) => {
-  const [provider, model] = e.target.value ? e.target.value.split('::') : ['', '']
-  pet.invoke('settings:set', { provider, model })
-})
 $('#pick-cwd').addEventListener('click', async () => {
   const d = await pet.invoke('pick:dir')
   if (d) pet.invoke('settings:set', { cwd: d })
 })
-$('#pick-exe').addEventListener('click', async () => {
-  const f = await pet.invoke('pick:exe')
-  if (f) pet.invoke('settings:set', { dshExe: f })
-})
-$('#pick-codex').addEventListener('click', async () => {
-  const f = await pet.invoke('pick:codex')
-  if (f) pet.invoke('settings:set', { codexExe: f })
+$('#pick-claude').addEventListener('click', async () => {
+  const f = await pet.invoke('pick:claude')
+  if (f) pet.invoke('settings:set', { claudeExe: f })
 })
 $('#prank-run').addEventListener('click', () => {
   const v = $('#prank-select').value
@@ -503,7 +467,6 @@ $('#screen-refresh').addEventListener('click', async () => {
   }
 })
 $('#screen-pause').addEventListener('click', () => pet.invoke('screen:pause', snap && snap.screenPausedUntil > Date.now() ? 0 : 60))
-$('#glance-model').addEventListener('change', (e) => pet.invoke('settings:set', { glanceModel: e.target.value }))
 
 ;(async () => {
   snap = await pet.invoke('panel:state')

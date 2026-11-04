@@ -33,8 +33,6 @@
             <button id="chat-send" class="primary">发送</button>
             <button id="chat-cancel">停止</button>
             <button id="chat-new">新对话</button>
-            <span class="grow"></span>
-            <button id="open-web" title="在 DeepSeek Harness 网页版里查看">DSH 网页版</button>
           </div>
         </div>
       </section>
@@ -76,7 +74,7 @@
         <h3>目标 · 持续跟进</h3>
         <p class="muted">把需要长期跟进的事交给她：到点后她会在后台推进一小步，回来向你汇报；需要你拍板时会带着选项来问你。</p>
         <form id="goal-form">
-          <input id="goal-title" placeholder="例如：每天汇总 deepseek-harness 仓库的新 issue" maxlength="60" required />
+          <input id="goal-title" placeholder="例如：每天汇总项目仓库的新 issue" maxlength="60" required />
           <textarea id="goal-detail" rows="2" placeholder="说明 / 标准 / 范围（可选）"></textarea>
           <div class="row">
             <select id="goal-every">
@@ -143,61 +141,38 @@
         <label class="check"><input data-key="autoStart" type="checkbox" />开机自动启动</label>
         <label>剪贴板快捷键<input data-key="hotkey" placeholder="留空关闭" /></label>
 
-        <h3>AI 内核</h3>
-        <label>后端
-          <select data-key="backend">
-            <option value="codex">Codex</option>
-            <option value="dsh">DeepSeek Harness</option>
-          </select>
-        </label>
+        <h3>AI 内核 · Claude Code</h3>
         <p id="backend-status" class="muted" role="status" aria-live="polite"></p>
-        <div data-backend="codex">
-          <label>Codex CLI 路径
-            <div class="row"><input data-key="codexExe" placeholder="留空自动查找 codex" /><button type="button" id="pick-codex">选择</button></div>
-          </label>
-          <label>模型<input data-key="codexModel" placeholder="留空使用 Codex 默认模型" /></label>
-          <label>推理强度
-            <select data-key="codexEffort">
-              <option value="">跟随 Codex 默认</option>
+        <label>Claude Code 路径
+          <div class="row"><input data-key="claudeExe" placeholder="留空自动查找 claude" /><button type="button" id="pick-claude">选择</button></div>
+        </label>
+        <label>模型<input data-key="claudeModel" list="claude-models" placeholder="留空使用 Claude Code 默认模型" /></label>
+        <datalist id="claude-models">
+          <option value="sonnet"></option>
+          <option value="opus"></option>
+          <option value="haiku"></option>
+        </datalist>
+        <label>推理强度
+          <select data-key="claudeEffort">
+            <option value="">跟随 Claude Code 默认</option>
               <option value="low">低</option>
               <option value="medium">中</option>
               <option value="high">高</option>
               <option value="xhigh">超高</option>
-            </select>
-          </label>
-          <p class="muted">使用 Codex 的登录状态；首次使用请先运行 <code>codex login</code>。</p>
-        </div>
-        <div data-backend="dsh" hidden>
-          <label>模型
-            <select id="model-select"></select>
-          </label>
-          <label>推理强度
-            <select data-key="reasoningEffort">
-              <option value="">跟随 DSH 默认（推荐）</option>
-              <option value="off">关闭（最快）</option>
-              <option value="low">低</option>
-              <option value="medium">中</option>
-              <option value="high">高</option>
-            </select>
-          </label>
-          <label>DeepSeek Harness.exe 路径
-            <div class="row"><input data-key="dshExe" placeholder="留空自动查找" /><button type="button" id="pick-exe">选择</button></div>
-          </label>
-          <label>DSH 网页版地址<input data-key="dshWebUrl" /></label>
-          <label>模型配置来源 profile<input data-key="sourceProfile" placeholder="desktop" /></label>
-        </div>
+              <option value="max">最高</option>
+          </select>
+        </label>
+        <p class="muted">使用 Claude Code 的登录状态；首次使用请先在终端运行 <code>claude</code> 完成登录。</p>
         <label>权限
           <select data-key="permission">
-            <option value="read-only">只读：只能看，不能改文件/跑写操作</option>
-            <option value="workspace-write">工作区可写：只能改工作目录内的文件</option>
-            <option value="danger-full-access">完全访问：不受沙箱限制（谨慎）</option>
+            <option value="read-only">只读：能读文件、查资料，不能改文件或运行命令</option>
+            <option value="workspace-write">工作区可写：只改工作目录里的文件；命令在沙箱里运行，不联网</option>
+            <option value="danger-full-access">完全访问：不再询问，不受限制（谨慎）</option>
           </select>
         </label>
         <label>工作目录
           <div class="row"><input data-key="cwd" /><button type="button" id="pick-cwd">选择</button></div>
         </label>
-        <label class="check"><input data-key="loadAgentsMd" type="checkbox" />加载 AGENTS.md 指令</label>
-        <label class="check"><input data-key="loadSkills" type="checkbox" />加载技能目录</label>
 
         <h3>主动性</h3>
         <label class="check"><input data-key="proactive" type="checkbox" />主动模式（提醒、打招呼、捣蛋）</label>
@@ -285,32 +260,17 @@
         <p id="weather-state" class="muted"></p>
         <label class="check"><input data-key="updateCheck" type="checkbox" />有新版本时告诉我（只查 GitHub Releases，不会自动下载）</label>
         <div class="row"><span id="update-state" class="muted grow"></span><button type="button" id="update-check">检查更新</button></div>
-        <div data-backend="codex">
-          <label>看屏和后台任务的模型<input data-key="codexGlanceModel" placeholder="留空跟随聊天模型" /></label>
-          <label>看屏和后台任务的推理强度
-            <select data-key="codexGlanceEffort">
-              <option value="">跟随聊天设置</option>
+        <label>看屏和后台任务的模型<input data-key="claudeGlanceModel" list="claude-models" placeholder="留空跟随聊天模型（例如 haiku 更快更省）" /></label>
+        <label>看屏和后台任务的推理强度
+          <select data-key="claudeGlanceEffort">
+            <option value="">跟随聊天设置</option>
               <option value="low">低</option>
               <option value="medium">中</option>
               <option value="high">高</option>
               <option value="xhigh">超高</option>
-            </select>
-          </label>
-        </div>
-        <div data-backend="dsh" hidden>
-          <label>看屏和后台任务的模型
-            <select id="glance-model"></select>
-          </label>
-          <label>看屏和后台任务的推理强度
-            <select data-key="glanceEffort">
-              <option value="">跟随 DSH 默认</option>
-              <option value="off">关闭（最快）</option>
-              <option value="low">低</option>
-              <option value="medium">中</option>
-              <option value="high">高</option>
-            </select>
-          </label>
-        </div>
+              <option value="max">最高</option>
+          </select>
+        </label>
         <div class="row">
           <button type="button" id="look-now" class="primary" data-requires="manualCapture">👀 看看我在干嘛</button>
           <button type="button" id="screen-pause">1 小时内别看</button>

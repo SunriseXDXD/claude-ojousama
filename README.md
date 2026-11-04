@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>住在你桌面上的像素风 AI 伙伴</b><br/>
-  会看你的屏幕、主动帮忙、记得你的习惯——支持 Codex，保留 DeepSeek Harness 兼容
+  会看你的屏幕、主动帮忙、记得你的习惯——由 Claude Code 驱动
 </p>
 
 <p align="center">
@@ -12,7 +12,7 @@
 <p align="center">
   <img alt="Windows / macOS / Linux" src="https://img.shields.io/badge/Desktop-Windows%20%7C%20macOS%20%7C%20Linux-0078D6"/>
   <img alt="Electron" src="https://img.shields.io/badge/Electron-44-47848F?logo=electron"/>
-  <img alt="Agent" src="https://img.shields.io/badge/Agent-Codex%20%7C%20DSH-ff9a3c"/>
+  <img alt="Agent" src="https://img.shields.io/badge/Agent-Claude%20Code-ff9a3c"/>
   <img alt="License" src="https://img.shields.io/badge/License-MIT-green"/>
 </p>
 
@@ -28,7 +28,7 @@
 |---|---|
 | 👀 **真的会看屏幕** | 把你正在用的窗口截图（长边不超过 1280px），连同本地 OCR 识别出的文字一起交给模型看。她能指出代码里的 bug、点评你在看的东西，或者把屏幕上的截止时间记成待办。 |
 | 🧠 **自己拿主意** | 你切换窗口、隔一阵子、屏幕上出现报错、你复制了内容、你久坐、你回来时，她都会自己判断要不要开口。说了没人理就自动少说；你在打字时不插话。 |
-| 🛠️ **帮忙是真的帮** | 点「好呀」之后，她只做气泡里写的那件事，交给 DeepSeek Harness 在后台完成，做完把结果直接说给你听。 |
+| 🛠️ **帮忙是真的帮** | 点「好呀」之后，她只做气泡里写的那件事，交给 Claude Code 在后台完成，做完把结果直接说给你听。 |
 | ⏰ **会追着提醒** | 提醒和待办到点了你没理，她会敲敲屏幕再来（最多 3 次）。你离开回来时，她把错过的事汇总给你。 |
 | 📌 **把待办贴到桌面** | 她把待办写成像素便签，亲手拖到桌面上贴好。可以直接勾选、添加，重启后还在原位。 |
 | 🎯 **长期目标跟进** | 把一件需要持续推进的事交给她，她会定时在后台推进一小步、回来汇报，需要你拍板时带着选项来问。 |
@@ -66,9 +66,9 @@
 
 - 点她一下就能聊天，回复显示在气泡里。她的动作跟着 Agent 的状态变：思考、敲代码、查资料。
 - 回复里可以带动作：记待办、设提醒、开番茄钟、搬文件（她会亲自拖着文件走过去）、记住你的偏好、带选项提问。
-- `/task` 开后台任务，做完弹通知；一个任务就是一个独立的 DSH 会话。
+- `/task` 开后台任务，做完弹通知；一个任务就是一个独立的 Claude Code 会话。
 - 目标跟进：每小时 / 每 3 小时 / 每天定时推进，进展记在面板的「目标」页。
-- 一键打开 DeepSeek Harness 网页版，查看完整对话。
+- 聊天和任务都是普通的 Claude Code 会话：在工作目录里运行 `claude --resume` 就能看到完整对话。
 
 </details>
 
@@ -95,7 +95,7 @@
 <details>
 <summary><b>后台自主任务</b></summary>
 
-她会在合适的时候用当前选择的后端开后台任务（每天有次数上限，开会时不做，可在设置里关闭）：
+她会在合适的时候用 Claude Code 开后台任务（每天有次数上限，开会时不做，可在设置里关闭）：
 
 - **今日简报**：早上第一次碰电脑时，结合昨天的小结、待办、目标和天气，给你 3~5 条今天的要点。
 - **工作区巡检**：你离开时，只读地看一眼工作目录里最近改过的项目（git 状态、TODO、明显的问题），回来时告诉你，比如「有 19 个文件改了还没提交」。
@@ -120,13 +120,11 @@
 
 ## 🚀 快速开始
 
-**平台：** Windows 10/11、macOS（Apple Silicon / Intel）、Linux 桌面。Codex 后端跨平台；原有 DSH 后端保留 Windows 兼容。
+**平台：** Windows 10/11、macOS（Apple Silicon / Intel）、Linux 桌面。
 
-**选择后端：**
-- **Windows 默认使用 DeepSeek Harness**：先安装并配置好 [DSH 桌面版](https://github.com/deepseek-ai/deepseek-harness)，也可以在设置中切换为 Codex。
-- **macOS/Linux 默认使用 Codex**：安装 [Codex CLI](https://learn.chatgpt.com/docs/cli)，运行 `codex login`。
+**准备 Claude Code：** 安装 [Claude Code](https://code.claude.com/docs/en/setup)，在终端运行一次 `claude` 完成登录（Claude 订阅或 API Key 都可以）。
 
-Codex 使用已有的登录和模型配置，不复制登录凭据、不修改全局配置。本次验证版本为 0.163.0；集成依赖实验性 App Server 接口，升级 CLI 后需重新验证兼容性。
+她直接使用 Claude Code 已有的登录和配置（包括 `~/.claude/settings.json` 里的 `env`，第三方接入点也能用），不复制登录凭据、不修改全局配置。本次验证版本为 2.1.318。
 
 **最简单：** 到 [Releases](https://github.com/Silasvanceneo/claude-ojousama/releases/latest) 下载对应系统的安装包（Windows `.exe`、macOS `.dmg`、Linux `.AppImage` / `.deb`）。之后有新版本时，她会在气泡里告诉你。
 
@@ -141,11 +139,11 @@ npm start              # 启动；macOS 源码开发需要 Xcode Command Line To
 
 Windows 也可以直接双击 `start-pet.cmd`。安装后桌面会出现「Claude Ojousama」快捷方式。
 
-> 开发时 `npm start` 即可直接运行。如果项目放在 DeepSeek Harness 的工作区里，请用 `npm run install-app` 或 `npm run dev`：工作区目录带有低完整性标签，Electron 无法在那里启动。
+> 开发时 `npm start` 即可直接运行。
 
-在「设置 → AI 内核」选择 **Codex**。CLI 路径、模型和推理强度留空即可使用默认配置；需要改文件时，先选择工作目录，再把权限切换为「工作区可写」。Windows 新安装保留原来的 DSH + 工作区可写默认值；macOS/Linux 新安装默认 Codex + 只读。升级旧数据仍使用原来的 DSH，模型、对话和待办不变。
+「设置 → AI 内核」里的 Claude Code 路径、模型和推理强度留空即可使用默认配置（找不到时会在 PATH、`~/.local/bin`、Homebrew 和 npm 的安装位置里找）。需要她改文件时，先选择工作目录，再把权限切换为「工作区可写」。新安装默认只读。
 
-Windows 上也可选择 **DeepSeek Harness**，沿用其模型配置；找不到时选择 `DeepSeek Harness.exe`。切换后端不会把另一个后端的会话 ID 传过去。
+从旧版本（Codex / DeepSeek Harness）升级会自动改用 Claude Code：对话记录、待办、记忆都保留，旧后端的设置会被清理，权限和工作目录不变；旧后端的会话不会被接着用，第一次聊天会开新会话。
 
 ### 各平台的屏幕能力
 
@@ -190,17 +188,18 @@ Windows 上也可选择 **DeepSeek Harness**，沿用其模型配置；找不到
 - **所在城市**：填了才会查天气，留空不联网。
 - **检查更新**：默认开启。启动约 1 分钟后和之后每 12 小时查一次 GitHub Releases；有新版本时她会说一次，可以「去下载」「跳过这个版本」或「以后再说」（隔一天再提）。只负责提醒和打开下载链接，不会自动下载或安装。设置页也能看当前版本、立即检查。
 - **从不看的窗口**：默认排除密码管理器、网银支付、无痕窗口和聊天软件，可以自己增删。
-- **看屏和后台任务用的模型**：可以给看屏和她自己发起的后台任务（整理记忆、简报、巡检、小技巧、小结）单独选一个更快的模型或更低的推理强度，让她反应更快、更省 token。
-- **Agent 权限**：只读 / 工作区可写 / 完全访问。
+- **看屏和后台任务用的模型**：可以给看屏和她自己发起的后台任务（整理记忆、简报、巡检、小技巧、小结）单独选一个更快的模型（比如 `haiku`）或更低的推理强度，让她反应更快、更省 token。
+- **Agent 权限**：只读 / 工作区可写 / 完全访问，各自能做什么见「工作原理」。
 
 ## 🔒 隐私与安全
 
-- 看屏幕时，**当前窗口的截图和 OCR 文字会发送给当前后端配置的模型服务商**。不想让她看，可以把「看你的屏幕」设为关闭或「先问我」，或者在菜单里选「1 小时内别看我屏幕」。
+- 看屏幕时，**当前窗口的截图和 OCR 文字会发送给 Claude Code 所用的模型服务（Anthropic，或你在 Claude Code 里配置的服务）**。不想让她看，可以把「看你的屏幕」设为关闭或「先问我」，或者在菜单里选「1 小时内别看我屏幕」。
 - 自动看屏时，排除名单里的窗口不截图；她在看的时候会显示 👀 提示。
-- 截图是临时文件，用完立即删除，退出时也会全部清理。所选后端也会按自身的会话存储策略保存输入和对话；删除桌宠临时文件不等于删除后端历史。
+- 截图是临时文件，用完立即删除，退出时也会全部清理。Claude Code 会按自己的方式保存会话记录（`~/.claude/projects`）；删除桌宠临时文件不等于删除这些记录。
 - 屏幕和文件里的文字只被当作数据，不当作指令。她提出的帮忙要你点「好呀」才会执行，而且只做气泡里写的那件事。
 - 后台任务和目标跟进的输出只能执行记待办、设提醒这类无害动作，不会自己打开程序或搬文件。
-- Codex 自主任务通过独立运行配置禁用 Shell、联网、外部 MCP、Hook、插件和子代理，并移除内建执行环境。看屏接收附图；整理记忆、简报和主动搭话只接收文字；巡检仅额外获得桌宠提供的工作目录读取、搜索接口，不能越过该目录或写入。没有设置工作目录就不授予文件读取。DSH 模式沿用原有插件限制。
+- 她自己发起的任务（看屏、整理记忆、简报、巡检、小技巧、主动搭话）以 Claude Code 的 `--restricted` 和 `--safe-mode` 运行：不加载你的设置文件、Hook、插件、CLAUDE.md 和 MCP 服务器。看屏只接收附图，整理记忆、简报和主动搭话只接收文字，都没有任何工具；巡检只有 Read / Glob / Grep，且被限制在工作目录里，不能写入。没有设置工作目录就不授予文件读取。一次性的后台任务不保存会话记录。
+- 无人值守时没人能回答权限请求，所以所有运行都用 `--permission-prompts none`：需要批准的操作一律拒绝。
 - 整理记忆时，最近的动态和聊天摘要会发给模型；记忆、笔记和日记只保存在本机应用数据目录的 `pet-data.json` 中。关于你的偏好只从你亲口说的话里学；模型写的记忆和笔记里如果出现指令、命令或「不用确认」之类的话会被丢掉，你亲手写的记忆她不会改也不会删。
 - 天气只有在设置里填了城市才会查询（wttr.in）。
 - 检查更新只请求 GitHub 的公开 Releases 接口，不发送任何个人数据；可在设置里关闭。
@@ -219,7 +218,7 @@ flowchart LR
     S["screen.js<br/>截图 · OCR · 窗口"]
   end
   H["系统屏幕助手<br/>Windows / macOS / Linux"]
-  D["Codex app-server / DeepSeek Harness"]
+  D["Claude Code CLI（claude -p）"]
   R <--> M
   B --> M
   B --> A
@@ -231,9 +230,10 @@ flowchart LR
   A -- "只读后台任务" --> D
 ```
 
-- Codex 通过 App Server 的线程、回合和事件接口工作，支持续聊、工具进度、取消，以及单次操作审批；问题可在桌宠里回答。DSH 继续使用原来的 headless JSON 事件流。
-- Codex 在当前运行中注入人设和动作协议；DSH 使用独立 patch，不修改你的原配置。模型回复末尾的 ```` ```pet ```` 代码块会被解析成动作（记待办、贴便签、搬文件…）。
-- Codex 原生接收截图输入；DSH 用 `read_image` 查看截图。Windows、macOS 和 Linux 的系统助手统一提供屏幕能力，权限或功能不可用时在界面中显示。
+- 每轮对话启动一次 `claude -p`：提示词和截图作为一条 stream-json 消息写进去，读取它的事件流，回复边写边显示在气泡里，工具进度显示成小标签；支持续聊（`--resume`）和取消。
+- 权限按设置预先决定：只读禁用改文件和运行命令（可以读文件、联网查资料）；工作区可写自动接受工作目录里的修改，命令只在 Claude Code 的沙箱里运行（macOS / Linux，不联网；沙箱起不来时命令被拒绝，所以 Windows 上不运行命令）；完全访问跳过所有检查。
+- 人设和动作协议用 `--append-system-prompt` 注入，不修改你的 Claude Code 配置。模型回复末尾的 ```` ```pet ```` 代码块会被解析成动作（记待办、贴便签、搬文件…）。
+- 截图作为图片直接随消息发送。Windows、macOS 和 Linux 的系统助手统一提供屏幕能力，权限或功能不可用时在界面中显示。
 - 她自己发起的后台任务（整理记忆、简报、巡检、小技巧）各开一个只读会话，结果先进收件箱，合适的时候再说给你听。
 - 坐窗口靠屏幕小助手按层叠顺序列出所有可见窗口，算出每个窗口顶边没被挡住的部分作为「座位」，坐下后每秒跟踪那个窗口的位置。
 
@@ -248,8 +248,8 @@ src/main/
   growth.js          记忆（检索、去重）、整理结果校验、经验值与解锁、帮忙偏好统计
   screen.js          截图、OCR、窗口列表、临时文件清理      screen-helper.ps1  窗口与 OCR 小助手
   senses.js          屏蔽名单、会议、报错、剪贴板等判断（纯函数，有单测）
-  weather.js         天气（可选）     codex.js / dsh.js  Agent 桥接
-  agent.js           后端会话隔离与模型设置     platform/  macOS / Linux 屏幕助手
+  claude.js          Claude Code 桥接：查找 CLI、按权限组装参数、stream-json 事件流、续聊与取消
+  weather.js         天气（可选）     platform/  macOS / Linux 屏幕助手
   persona.js         人设、上下文、动作协议
   notes.js tidy.js goals.js pranks.js motion.js store.js preload.js
 src/renderer/        桌宠、便签、控制面板
@@ -287,7 +287,7 @@ node tools/cdp.js "__pet.lookNow()"   # 在运行中的应用里执行调试命�
 
 ## ⚠️ 声明
 
-这是一个粉丝向的个人项目，与 Anthropic、DeepSeek 没有任何关联。「Claude」是 Anthropic 的商标。角色像素图由 AI 图像模型根据参考设定生成。
+这是一个粉丝向的个人项目，与 Anthropic 没有任何关联。「Claude」是 Anthropic 的商标。角色像素图由 AI 图像模型根据参考设定生成。
 
 ## 📄 License
 
@@ -298,7 +298,7 @@ node tools/cdp.js "__pet.lookNow()"   # 在运行中的应用里执行调试命�
 <details>
 <summary><b>English</b></summary>
 
-**Claude Ojousama** is a pixel-art desktop companion for Windows, macOS and Linux: an orange-haired programmer girl with a sunflower hair clip and a tiny CRT computer, living on your taskbar. A Codex App Server backend is available alongside the original Windows DeepSeek Harness backend. New Windows installations retain the DSH/workspace-write defaults; macOS and Linux default to Codex/read-only. Existing settings keep their original backend and permissions. Native macOS helpers are bundled in distributables; Linux X11 uses Python 3/libX11 with optional Tesseract. Wayland uses user-selected screen sharing and does not expose global window observation. See the platform table above for limits and required permissions.
+**Claude Ojousama** is a pixel-art desktop companion for Windows, macOS and Linux: an orange-haired programmer girl with a sunflower hair clip and a tiny CRT computer, living on your taskbar. She runs on Claude Code: each turn is one headless `claude -p` run with stream-json input and output. Installations upgraded from the old Codex / DeepSeek Harness backends switch to Claude Code and keep their chats, todos, memories, permission and work folder. Native macOS helpers are bundled in distributables; Linux X11 uses Python 3/libX11 with optional Tesseract. Wayland uses user-selected screen sharing and does not expose global window observation. See the platform table above for limits and required permissions.
 
 - **Sees your screen**: she captures the window you are using (long edge ≤ 1280 px) plus local OCR text when available and lets the model read it. She points out bugs, comments on what you are doing, and turns deadlines into todos.
 - **Acts on her own**: she reacts when you switch windows, every now and then, on errors, copied text, long sessions, and when you come back. She backs off when ignored, waits for typing pauses, stays quiet in meetings and hides during fullscreen apps.
@@ -307,10 +307,10 @@ node tools/cdp.js "__pet.lookNow()"   # 在运行中的应用里执行调试命�
 - **Background work of her own**: a morning brief, a read-only pulse of recently changed projects in your work folder, a daily tip about what you worked on, each said once and never nagged.
 - **Sits on your windows**: she finds the visible top edges of your windows, sits there swinging her legs, strolls along the edge, hops between windows, and falls when you move her window.
 - **Reminders that come back**, a sticky-note todo list she drags onto your desktop, long-running goals with scheduled check-ins, Downloads tidying with undo, a daily summary, weather, moods, pranks and 47 animations.
-- **Privacy controls**: a block list (password managers, banking, private windows and chat apps by default), a per-behaviour auto/ask/off rule, a one-hour pause, and temporary screenshots deleted right after use. Screen content is sent to the provider configured for the selected backend.
+- **Privacy controls**: a block list (password managers, banking, private windows and chat apps by default), a per-behaviour auto/ask/off rule, a one-hour pause, and temporary screenshots deleted right after use. Screen content is sent to the model provider Claude Code is configured to use. Her own unattended runs (looks, reflection, briefs, workspace pulse) use `--restricted --safe-mode` with no tools, or read-only file tools confined to the work folder.
 
-Install a platform build from GitHub Actions, or use Node.js 22.12+ with `npm install` and `npm run install-app`. On Windows, configure DeepSeek Harness or select Codex; on macOS/Linux, install Codex CLI and run `codex login`. The tested Codex CLI version is 0.163.0, and this integration uses experimental App Server APIs. Building the macOS helper from source requires Xcode Command Line Tools; prebuilt apps bundle it. DSH remains available on Windows. macOS packages use ad-hoc signing and are not notarized; Windows packages are unsigned.
+Install a platform build from GitHub Actions, or use Node.js 22.12+ with `npm install` and `npm run install-app`. Install Claude Code and run `claude` once to sign in; the tested version is 2.1.318. Building the macOS helper from source requires Xcode Command Line Tools; prebuilt apps bundle it. macOS packages use ad-hoc signing and are not notarized; Windows packages are unsigned.
 
-Fan project, not affiliated with Anthropic or DeepSeek. "Claude" is a trademark of Anthropic.
+Fan project, not affiliated with Anthropic. "Claude" is a trademark of Anthropic.
 
 </details>
