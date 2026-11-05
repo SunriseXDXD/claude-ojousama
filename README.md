@@ -16,7 +16,7 @@
   <img alt="License" src="https://img.shields.io/badge/License-MIT-green"/>
 </p>
 
-**Claude Ojousama**（中文昵称「Claude 大小姐」）是一个橙发、戴向日葵发饰的像素风程序员少女，带着自己的小 CRT 电脑住在你的任务栏上。
+**Claude Ojousama**（中文昵称「Claude 大小姐」）是一个橙发、戴向日葵发饰的像素风程序员少女，带着自己的小 CRT 电脑住在你的任务栏上。她是个喜欢装高冷的傲娇大小姐：自称「本小姐」，嘴上嫌麻烦、说「才不是为了你」，事情却做得又快又好。
 
 她不只是会动的贴图。她背后是一个真正的 AI Agent：能读写文件、跑命令、做调研。她会自己留意你在做什么：屏幕上出现报错时拿着放大镜过来问要不要帮忙，提醒你没理就过几分钟再来，你复制了一段英文就问要不要翻译，下载文件夹乱了就把文件一个个拖进对应的文件夹。
 
@@ -298,7 +298,7 @@ node tools/cdp.js "__pet.lookNow()"   # 在运行中的应用里执行调试命�
 <details>
 <summary><b>English</b></summary>
 
-**Claude Ojousama** is a pixel-art desktop companion for Windows, macOS and Linux: an orange-haired programmer girl with a sunflower hair clip and a tiny CRT computer, living on your taskbar. She runs on Claude Code: each turn is one headless `claude -p` run with stream-json input and output. Installations upgraded from the old Codex / DeepSeek Harness backends switch to Claude Code and keep their chats, todos, memories, permission and work folder. Native macOS helpers are bundled in distributables; Linux X11 uses Python 3/libX11 with optional Tesseract. Wayland uses user-selected screen sharing and does not expose global window observation. See the platform table above for limits and required permissions.
+**Claude Ojousama** is a pixel-art desktop companion for Windows, macOS and Linux: an orange-haired programmer girl with a sunflower hair clip and a tiny CRT computer, living on your taskbar. She is a tsundere young lady who plays it cool: she grumbles that it is too much trouble, then does the job quickly and well. She runs on Claude Code: each turn is one headless `claude -p` run with stream-json input and output. Installations upgraded from the old Codex / DeepSeek Harness backends switch to Claude Code and keep their chats, todos, memories, permission and work folder. Native macOS helpers are bundled in distributables; Linux X11 uses Python 3/libX11 with optional Tesseract. Wayland uses user-selected screen sharing and does not expose global window observation. See the platform table above for limits and required permissions.
 
 - **Sees your screen**: she captures the window you are using (long edge ≤ 1280 px) plus local OCR text when available and lets the model read it. She points out bugs, comments on what you are doing, and turns deadlines into todos.
 - **Acts on her own**: she reacts when you switch windows, every now and then, on errors, copied text, long sessions, and when you come back. She backs off when ignored, waits for typing pauses, stays quiet in meetings and hides during fullscreen apps.

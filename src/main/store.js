@@ -34,6 +34,7 @@ const DEFAULTS = {
     distractions: null, // null -> senses.DEFAULT_DISTRACT
     quietInMeetings: true,
     hideOnFullscreen: true,
+    showOverFullscreen: false, // stay visible above fullscreen games/videos (overrides hideOnFullscreen)
     clipboardWatch: true,
     focusGuard: true,
     climbWindows: true,

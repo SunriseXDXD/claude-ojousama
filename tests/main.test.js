@@ -23,6 +23,7 @@ class FakeWindow extends EventEmitter {
   hide() { this.visible=false }
   showInactive() { this.visible=true }
   setAlwaysOnTop() {}
+  setVisibleOnAllWorkspaces() {}
   setIgnoreMouseEvents() {}
   loadFile() {}
 }

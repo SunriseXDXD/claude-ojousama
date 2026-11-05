@@ -81,7 +81,7 @@ async function hide(pet) {
   await pet.motion.walkTo(home.x, 110)
   pet.release()
   pet.once('surprise', 1)
-  pet.say('找到我了吗？嘿嘿～', { ttl: 2500 })
+  pet.say('找到本小姐了？……哼，算你厉害。', { ttl: 2500 })
 }
 
 async function dance(pet) {

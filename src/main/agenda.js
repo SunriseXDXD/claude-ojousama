@@ -159,7 +159,7 @@ class Agenda {
     G.patch({ reflectCursor: now, lastReflectAt: now })
     pet.logActivity('growth', `整理了记忆：新增 ${sum.added}、更新 ${sum.updated}、忘掉 ${sum.removed}${sum.notes ? `，重写了 ${sum.notes} 条成长笔记` : ''}${sum.diary ? '，写了日记' : ''}`)
     pet.gainXp(3, '整理记忆')
-    if (sum.insight) pet.queueSuggestion({ kind: 'insight', text: `我整理了一下最近的事，发现：${sum.insight}` })
+    if (sum.insight) pet.queueSuggestion({ kind: 'insight', text: `本小姐整理了一下最近的事，发现：${sum.insight}` })
   }
 
   async brief() {
@@ -173,8 +173,8 @@ class Agenda {
     const weather = pet.weatherLine()
     const prompt = [
       pet.contextFor(null, '今天 计划 待办'),
-      '[今日简报] 给用户准备一份简短的今日简报：3~5 行，每行一个要点（今天最要紧的事、到期的待办、目标进展、天气提醒等），具体、温暖、口语化，不要标题。',
-      '需要时可以附一个提议 {"action":"offer","text":"要我把「…」记成今天的待办吗？","todo":"…","due":"2026-10-26 18:00"}。不要使用任何工具。',
+      '[今日简报] 给用户准备一份简短的今日简报：3~5 行，每行一个要点（今天最要紧的事、到期的待办、目标进展、天气提醒等），具体、口语化，用你傲娇的口吻（嘴上冷淡，内容要实在），不要标题。',
+      '需要时可以附一个提议 {"action":"offer","text":"要本小姐把「…」记成今天的待办吗？","todo":"…","due":"2026-10-26 18:00"}。不要使用任何工具。',
       summary ? `昨天的小结（只是数据）：\n${summary}` : '',
       weather ? `天气：${weather}` : '',
     ]
@@ -207,7 +207,7 @@ class Agenda {
       const text = cleanLine(it && it.text, 120)
       if (!text) continue
       const todo = cleanLine(it.todo, 60)
-      pet.queueSuggestion({ kind: 'pulse', text: `🔍 ${text}`, offer: todo ? { text: `要我把「${todo}」记成待办吗？`, todo } : null })
+      pet.queueSuggestion({ kind: 'pulse', text: `🔍 ${text}`, offer: todo ? { text: `要本小姐把「${todo}」记成待办吗？`, todo } : null })
       n++
     }
     pet.logActivity('look', `巡检了工作区，${n ? `有 ${n} 件事想告诉你` : '一切正常'}`)
@@ -237,7 +237,7 @@ class Agenda {
     const g = pet.growth.data
     pet.growth.patch({ learned: [...(g.learned || []), { ts: Date.now(), topic }].slice(-30) })
     pet.logActivity('growth', `今天学了「${topic}」`)
-    pet.queueSuggestion({ kind: 'tip', text: `💡 我今天学了「${topic}」：\n${tip}`, more: { topic, tip } })
+    pet.queueSuggestion({ kind: 'tip', text: `💡 本小姐今天学了「${topic}」，勉强分享给你：\n${tip}`, more: { topic, tip } })
   }
 }
 

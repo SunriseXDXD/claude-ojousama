@@ -196,7 +196,8 @@ class Brain {
 
   handleFullscreen(info) {
     const pet = this.pet
-    const want = !!(pet.settings().hideOnFullscreen && info && info.fullscreen && !info.own && pet.onDisplay(info.display.id))
+    const s = pet.settings()
+    const want = !!(s.hideOnFullscreen && !s.showOverFullscreen && info && info.fullscreen && !info.own && pet.onDisplay(info.display.id))
     if (want !== this.hidden) {
       this.hidden = want
       pet.setHidden(want)
@@ -251,7 +252,7 @@ class Brain {
     pet.once(again ? 'angry' : 'sulk', 2)
     pet.logActivity('look', `专注时间看到「${hit}」，提醒了一下${again ? '（第二次）' : ''}`)
     pet
-      .say(again ? `又是「${hit}」！番茄钟还没结束呢，快回去！` : `说好专注的呢～「${hit}」先放一放吧！`, {
+      .say(again ? `又是「${hit}」？番茄钟还没结束，给我回去！` : `说好的专注呢？「${hit}」先放一放。`, {
         ttl: 15000,
         buttons: [
           { id: 'back', label: '马上回去' },
@@ -278,7 +279,7 @@ class Brain {
     pet.once('stretch', 3)
     pet.logActivity('look', `你已经连续用 ${s.proc} ${mins} 分钟了，提醒休息`)
     pet
-      .say(`已经连续用 ${pet.appName(s.proc)} ${mins} 分钟啦，起来伸个懒腰吧～`, {
+      .say(`已经连续用 ${pet.appName(s.proc)} ${mins} 分钟了。起来伸个懒腰——才不是担心你。`, {
         ttl: 20000,
         buttons: [
           { id: 'rest', label: '休息 5 分钟' },
@@ -320,7 +321,7 @@ class Brain {
     if (now - this.lastSongSaid > 20 * MIN && Math.random() < 0.6 && this.canSpeak()) {
       this.lastSongSaid = now
       this.noteSpoke()
-      pet.say(`在听《${song}》呀～我也跟着晃一晃♪`, { ttl: 5000 })
+      pet.say(`在听《${song}》？……品味还行，本小姐也跟着晃一下♪`, { ttl: 5000 })
     }
     return true
   }

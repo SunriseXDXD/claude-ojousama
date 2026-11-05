@@ -32,7 +32,7 @@ function inQuietHours(settings, d = new Date()) {
 const PRANK_MEAN = { 1: 55, 2: 28, 3: 11 }
 
 const ALERT_ICON = { reminder: '⏰', 'todo-soon': '📌', 'todo-overdue': '⚠️', 'goal-ask': '🎯' }
-const ALERT_TITLE = { reminder: 'Claude Ojousama 提醒你', 'todo-soon': '待办快到时间啦', 'todo-overdue': '待办过期啦', 'goal-ask': '需要你拍板' }
+const ALERT_TITLE = { reminder: 'Claude 大小姐提醒你', 'todo-soon': '待办快到时间了', 'todo-overdue': '待办过期了', 'goal-ask': '需要你拍板' }
 const ALERT_BUTTONS = {
   reminder: [
     { id: 'ok', label: '知道啦' },
@@ -132,7 +132,7 @@ class Proactive {
       if (s.proactive && gone > 10 * MIN && !inQuietHours(s) && pet.canInterrupt()) {
         pet.once('surprise', 1)
         const soon = pet.store.get('todos').filter((t) => !t.done && t.due && t.due - now < 3 * 60 * MIN)
-        pet.say(pick(LINES.welcome) + (soon.length ? `\n别忘了「${soon[0].text}」（${fmtTime(soon[0].due)}）～` : ''), { ttl: 7000 })
+        pet.say(pick(LINES.welcome) + (soon.length ? `\n「${soon[0].text}」（${fmtTime(soon[0].due)}）快到了，别忘了。` : ''), { ttl: 7000 })
         return
       }
     }
@@ -175,7 +175,7 @@ class Proactive {
       if (petState.lastNightNag !== night) {
         pet.store.patch('pet', { lastNightNag: night })
         pet.once('sleep', 2)
-        pet.say(`已经 ${fmtTime(now, false)} 啦。` + pick(LINES.night), { ttl: 8000 })
+        pet.say(`已经 ${fmtTime(now, false)} 了。` + pick(LINES.night), { ttl: 8000 })
       }
       return
     }
@@ -197,10 +197,10 @@ class Proactive {
       const open = pet.store.get('todos').filter((t) => !t.done)
       if (open.length >= 2) {
         pet.store.patch('pet', { lastNoteDay: todayStr })
-        if (noteRule === 'auto') pet.postTodoNote({ line: `今天有 ${open.length} 件事要做，我写成便签贴出来～` })
+        if (noteRule === 'auto') pet.postTodoNote({ line: `今天有 ${open.length} 件事要做。本小姐写成便签给你贴出来。` })
         else
           pet
-            .say(`今天有 ${open.length} 件待办，要我写成便签贴到桌面上吗？`, {
+            .say(`今天有 ${open.length} 件待办。要本小姐写成便签贴到桌面上吗？`, {
               ttl: 20000,
               buttons: [
                 { id: 'yes', label: '贴吧' },
@@ -327,7 +327,7 @@ class Proactive {
       await pet.motion.shake(450, 6)
       await sleep(200)
       await pet.motion.shake(450, 6)
-      pet.notify('还在等你回应', String(a.text).replace(/^[^\n]*\n❓/, '❓'))
+      pet.notify('本小姐还在等你回应', String(a.text).replace(/^[^\n]*\n❓/, '❓'))
     }
     pet.once(count === 1 || !urgent ? 'wave' : 'sulk', 2)
     const buttons = a.buttons || ALERT_BUTTONS[a.kind] || [{ id: 'ok', label: '知道啦' }]
@@ -411,12 +411,12 @@ class Proactive {
     const lines = [
       ...pending.map((a) => `${ALERT_ICON[a.kind] || '🔔'} ${clip(String(a.text).split('\n').pop().replace(/^❓\s*/, ''), 26)}`),
       ...reports.map((g) => `🎯「${clip(g.title, 14)}」有新进展`),
-      ...(inbox ? [`💡 我在你不在时准备了 ${inbox} 件事，等下慢慢说`] : []),
+      ...(inbox ? [`💡 你不在的时候，本小姐准备了 ${inbox} 件事，等下再说`] : []),
     ]
     this.showing = 'catchup'
     pet.once('wave', 2)
     pet
-      .say(`欢迎回来！你不在的时候：\n${lines.slice(0, 5).join('\n')}${lines.length > 5 ? `\n…还有 ${lines.length - 5} 条` : ''}`, {
+      .say(`回来了？你不在的时候：\n${lines.slice(0, 5).join('\n')}${lines.length > 5 ? `\n…还有 ${lines.length - 5} 条` : ''}`, {
         ttl: 40000,
         buttons: [
           { id: 'one', label: '一条条看' },
@@ -460,10 +460,10 @@ class Proactive {
       if (t.done || !t.due) continue
       if (!t.warned && t.due - now <= 10 * MIN && t.due > now) {
         pet.updateTodo(t.id, { warned: true })
-        this.raise({ kind: 'todo-soon', refId: t.id, text: `「${t.text}」快到截止时间啦（${fmtTime(t.due, false)}）！` })
+        this.raise({ kind: 'todo-soon', refId: t.id, text: `「${t.text}」快到截止时间了（${fmtTime(t.due, false)}）。还不动手？` })
       } else if (!t.overdue && now > t.due) {
         pet.updateTodo(t.id, { overdue: true, warned: true })
-        this.raise({ kind: 'todo-overdue', refId: t.id, text: `「${t.text}」已经过了截止时间（${fmtTime(t.due, false)}）……要改个时间还是标记完成？` })
+        this.raise({ kind: 'todo-overdue', refId: t.id, text: `「${t.text}」已经过了截止时间（${fmtTime(t.due, false)}）。……要改个时间，还是标记完成？` })
       }
     }
   }

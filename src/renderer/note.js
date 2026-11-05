@@ -34,7 +34,7 @@ function renderTodos(data, writing) {
   if (!items.length) {
     const li = document.createElement('li')
     li.className = 'empty'
-    li.textContent = '今天没有待办，轻松一下～'
+    li.textContent = '今天没有待办。……难得，好好休息吧。'
     list.append(li)
   }
   items.forEach((t, i) => {
