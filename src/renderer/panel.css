@@ -401,3 +401,249 @@ button[disabled] {
   font-size: 11px;
   color: #8a6a55;
 }
+
+/* ------------------------------------------------------------ US stocks */
+.stock-root {
+  --s-surface: #fffdf9;
+  --s-price: #2a78d6; /* blue / orange / aqua: validated as a set on this surface */
+  --s-ma: #eb6834;
+  --s-trend: #1baf7a;
+  --s-track: #cde2fb;
+  --s-grid: #ece3d6;
+  --s-axis: #cdb79d;
+  --s-up: #c8372d;
+  --s-down: #0b7a3a;
+}
+.stock-root.green-up {
+  --s-up: #0b7a3a;
+  --s-down: #c8372d;
+}
+.stock-root .up {
+  color: var(--s-up);
+}
+.stock-root .down {
+  color: var(--s-down);
+}
+.stocks li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 76px 96px;
+  gap: 8px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.stocks li:hover,
+.stocks li:focus-visible {
+  background: #fff1de;
+  outline: none;
+}
+.stocks li.sel {
+  background: #ffe7c9;
+}
+.stocks li.empty {
+  display: block;
+  cursor: default;
+}
+.stocks .sym {
+  min-width: 0;
+}
+.stocks .nm {
+  display: block;
+  color: #8a6a55;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stocks .q {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+.stocks .q b,
+.stocks .q small {
+  display: block;
+}
+.stocks .q small {
+  font-size: 11px;
+}
+.tags {
+  margin-top: 2px;
+}
+.tag {
+  display: inline-block;
+  margin: 1px 4px 1px 0;
+  padding: 0 5px;
+  border: 1px solid #d9c3a8;
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 16px;
+  color: #6b5040;
+  background: #fffdf9;
+  white-space: nowrap;
+}
+.tag.hot {
+  border-color: #3b2a20;
+  font-weight: bold;
+}
+.stock-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 4px;
+}
+#sd-symbol {
+  font-size: 15px;
+}
+#sd-price {
+  font-size: 18px;
+}
+.seg {
+  display: flex;
+  margin: 8px 0 4px;
+}
+.seg button {
+  border-radius: 0;
+  box-shadow: none;
+  padding: 2px 10px;
+}
+.seg button + button {
+  margin-left: -2px;
+}
+.seg button:first-child {
+  border-radius: 4px 0 0 4px;
+}
+.seg button:last-child {
+  border-radius: 0 4px 4px 0;
+}
+.seg button.on {
+  background: #ff9a3c;
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 4px 0;
+  font-size: 11px;
+  color: #6b5040;
+}
+.legend i {
+  display: inline-block;
+  width: 14px;
+  height: 2px;
+  margin-right: 4px;
+  border-radius: 1px;
+  vertical-align: middle;
+}
+.stock-chart {
+  position: relative;
+  background: var(--s-surface);
+  border: 2px solid #3b2a20;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.stock-chart svg {
+  display: block;
+  max-width: 100%;
+  touch-action: none;
+}
+.stock-chart .ax {
+  font-size: 10px;
+  fill: #8a6a55;
+  font-variant-numeric: tabular-nums;
+}
+.stock-chart .endv {
+  font-size: 11px;
+  font-weight: bold;
+  fill: #3b2a20;
+}
+.stock-chart .endl {
+  font-size: 10px;
+  fill: #6b5040;
+}
+.stock-chart rect:focus {
+  outline: none;
+}
+.tip {
+  position: absolute;
+  top: 8px;
+  pointer-events: none;
+  padding: 4px 7px;
+  background: #fffdf9;
+  border: 1px solid #d9c3a8;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(59, 42, 32, 0.15);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.tip .d {
+  color: #8a6a55;
+}
+.tip b {
+  font-size: 12px;
+  margin-right: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.tip .k {
+  display: inline-block;
+  width: 10px;
+  height: 2px;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+.stock-line {
+  margin: 6px 0;
+}
+h4 {
+  margin: 10px 0 2px;
+  font-size: 13px;
+}
+.compare .cmp {
+  display: grid;
+  grid-template-columns: 62px 72px minmax(0, 1fr);
+  align-items: center;
+  gap: 4px 8px;
+  padding: 5px 0;
+  border-bottom: 1px dashed #d9c3a8;
+}
+.compare .cmp b {
+  font-variant-numeric: tabular-nums;
+}
+.compare .cmp p {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 11px;
+  color: #8a6a55;
+}
+.rbar {
+  position: relative;
+  height: 6px;
+  margin: 0 7px;
+  border-radius: 3px;
+  background: var(--s-track);
+}
+.rbar .avg {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 12px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: #8a6a55;
+}
+.rbar .now {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: var(--s-price);
+  box-shadow: 0 0 0 2px #fff8ef;
+}
+#stock-filter {
+  width: 100%;
+  margin: 4px 0;
+}
+.stock-errors {
+  white-space: pre-line;
+}

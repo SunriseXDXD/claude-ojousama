@@ -17,6 +17,7 @@
         <button data-tab="chat" class="active">聊天</button>
         <button data-tab="todos">待办</button>
         <button data-tab="goals">目标</button>
+        <button data-tab="stocks">美股</button>
         <button data-tab="tasks">任务</button>
         <button data-tab="activity">动态</button>
         <button data-tab="growth">成长</button>
@@ -98,6 +99,58 @@
           <div class="row"><span class="grow"></span><button class="primary">开始任务</button></div>
         </form>
         <ul id="task-list" class="list tasks"></ul>
+      </section>
+
+      <section id="tab-stocks" class="tab stock-root">
+        <div class="row">
+          <span id="stock-status" class="muted grow" role="status" aria-live="polite"></span>
+          <button type="button" id="stock-scan" class="primary">立即查看</button>
+        </div>
+        <div id="stock-detail" hidden>
+          <div class="stock-head">
+            <div class="grow"><b id="sd-symbol"></b> <span id="sd-name" class="muted"></span></div>
+            <b id="sd-price"></b>
+          </div>
+          <div id="sd-tags" class="tags"></div>
+          <div class="seg" role="group" aria-label="时间范围">
+            <button type="button" data-range="1m">1 个月</button><button type="button" data-range="6m">半年</button><button type="button" data-range="1y">1 年</button><button type="button" data-range="5y">5 年</button>
+          </div>
+          <div id="sd-legend" class="legend"></div>
+          <div id="sd-chart" class="stock-chart"></div>
+          <p id="sd-trend" class="stock-line"></p>
+          <p id="sd-drop" class="stock-line"></p>
+          <h4>和过去比 <span class="muted">● 现价　| 均价　条：区间最低到最高</span></h4>
+          <div id="sd-compare" class="compare"></div>
+          <p id="sd-level" class="stock-line"></p>
+          <div class="row">
+            <button type="button" id="sd-analyze">让本小姐查查为什么跌</button>
+            <span class="grow"></span>
+            <button type="button" id="sd-close">收起图表</button>
+          </div>
+        </div>
+        <h3>长期上涨 · 最近急跌 <span id="stock-dip-note" class="muted"></span></h3>
+        <ul id="stock-dips" class="list stocks"></ul>
+        <h3>全部观察 <span class="muted">按离 1 个月高点的跌幅排序</span></h3>
+        <input id="stock-filter" placeholder="筛选：代码或公司名" aria-label="筛选股票" />
+        <ul id="stock-all" class="list stocks"></ul>
+        <p id="stock-errors" class="muted stock-errors"></p>
+
+        <h3>美股观察设置</h3>
+        <label class="check"><input data-key="stockAuto" type="checkbox" />每个美股交易日自动看 3 次</label>
+        <label>自动查看的时间（美东时间，逗号分隔）<input data-key="stockTimes" placeholder="10:00, 13:00, 16:15" /></label>
+        <p id="stock-local-times" class="muted"></p>
+        <label class="check"><input data-key="stockDefaultPool" type="checkbox" />包含默认观察池（约 125 家美国大公司）</label>
+        <label>自选美股（每行一个代码，例如 AAPL、BRK.B）
+          <textarea data-list="stockWatch" rows="3"></textarea>
+        </label>
+        <label>急跌标准：比 1 个月内最高价低多少（%）<input data-key="stockDropPct" type="number" min="3" max="50" /></label>
+        <label>涨跌颜色
+          <select data-key="stockColors">
+            <option value="red-up">红涨绿跌</option>
+            <option value="green-up">绿涨红跌</option>
+          </select>
+        </label>
+        <p class="muted">只看在美国主要交易所（Nasdaq、NYSE 等）上市、以美元交易的个股，ETF 和其他市场的代码会被跳过。数据来自 Yahoo Finance 的日线收盘价，交易时段内可能有约 15 分钟延迟。「价位」只和这只股票自己过去的价格比，不是估值。这里的一切都只是数据，不构成投资建议。</p>
       </section>
 
       <section id="tab-activity" class="tab">

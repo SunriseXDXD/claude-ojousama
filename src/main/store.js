@@ -45,6 +45,12 @@ const DEFAULTS = {
     morningBrief: true,
     workspacePulse: true, // read-only look at recently changed projects in the work folder while away
     updateCheck: true, // look for new GitHub releases (never downloads by itself)
+    stockAuto: true, // US stock watch: scan three times per trading day
+    stockTimes: ['10:00', '13:00', '16:15'], // New York time (after the open, midday, after the close)
+    stockDefaultPool: true, // ~125 large US companies, plus stockWatch
+    stockWatch: [], // the user's own US tickers
+    stockDropPct: 10, // below the 1-month high by this much (or 0.7x in 5 trading days) = a rapid drop
+    stockColors: 'red-up', // red-up (红涨绿跌) | green-up
   },
   update: { checkedAt: 0, latest: null, error: '', notifiedVersion: '', skipVersion: '', laterUntil: 0 },
   pet: { x: null, y: null, affection: 0, mood: 0, lastGreetDay: '', lastNightNag: '', lastNoteDay: '', lastSummaryDay: '', screenPauseUntil: 0, lastRainDay: '', lastGiftAt: 0 },

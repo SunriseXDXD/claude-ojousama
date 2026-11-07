@@ -34,6 +34,7 @@
 | 🎯 **长期目标跟进** | 把一件需要持续推进的事交给她，她会定时在后台推进一小步、回来汇报，需要你拍板时带着选项来问。 |
 | 🧹 **整理下载文件夹** | 发现新下载的文件，问你要不要整理，然后拖着文件走进「图片 / 文档 / 压缩包…」文件夹，可一键撤销。 |
 | 🌱 **会记忆、会成长** | 她会趁你不忙时整理记忆、写成长笔记和日记；会根据你的反应调整自己：你常接受的帮忙她会更常提，你不需要的她就少打扰。经验值升级还会解锁新本事。 |
+| 📈 **盯着美股** | 每个美股交易日自动看 3 次（也可以随时手动），专门找「长期一直涨、最近却急跌」的美国股票，画出走势图，并把现价和过去 1 个月、半年、1 年比较。 |
 | 🤖 **后台自己做事** | 早上给你一份今日简报，你离开时巡检工作区（只读）找出没提交的修改和遗漏的问题，下午准备一条和你今天工作相关的小技巧。结果只说一次，绝不唠叨。 |
 | 🪟 **坐在你的窗口上** | 她最喜欢坐在你打开的窗口顶上晃腿，偶尔沿着窗口边散步、跳到另一个窗口；把她拖到窗口上方松手，她会落在窗口边上坐好。 |
 | 💞 **活生生的陪伴** | 47 个动作、心情和好感度、天气感知、各种恶作剧，还会举起小木牌给你应援。 |
@@ -89,6 +90,19 @@
 - **越来越懂你**：她会记下你对每种主动帮忙的反应（报错救援、复制提示、休息提醒、工作区巡检…），常被接受的就更常提，常被拒绝或没人理的就少打扰。
 - **升级与解锁**：聊天、完成待办、番茄钟、采纳建议都会给她经验值。升级时举牌庆祝并送你礼物，还会解锁新本事：小猫串门、变魔术、听歌跳舞、送礼物、举牌应援。
 - 面板的「成长」页能看到她的等级、学到的东西、成长笔记、日记和记忆。
+
+</details>
+
+<details>
+<summary><b>美股观察</b></summary>
+
+- **只看美股**：只保留在美国主要交易所（Nasdaq、NYSE、NYSE American、NYSE Arca、Cboe）上市、以美元交易的个股；ETF、场外市场和其他国家市场的代码会被跳过并说明原因。默认观察池是约 125 家美国大公司，也可以加自己的自选（注意：在美国上市的外国公司 ADR 也会通过这道检查）。
+- **找什么**：用近 5 年的日线收盘价拟合长期趋势（对数价格的线性回归，给出年化涨幅和稳定度 R²）。年化 ≥7% 且走势稳定，同时最近比 1 个月内最高价跌了 ≥10%（或 5 个交易日跌了 ≥7%）的，算「长期上涨 · 最近急跌」。阈值可以在面板里改。
+- **怎么评估价位**：把现价和过去 1 个月、半年、1 年比较：涨跌幅、和均价的差距、在最低价到最高价区间里的位置，再综合成「低位 / 偏低 / 中间 / 偏高 / 高位」。只和这只股票自己过去的价格比，不是估值。
+- **图表**：面板的「美股」页有带迷你走势图的列表，点开一只能看 1 个月 / 半年 / 1 年 / 5 年的走势图（收盘价、200 日均线、5 年趋势线，鼠标悬停看每天的数值），以及和过去比较的区间条。
+- **什么时候看**：默认美东时间 10:00、13:00、16:15（开盘后、午间、收盘后），只在周一到周五；电脑睡着错过的那次会在醒来后补上（12 小时内）。也可以点「立即查看」、右键菜单「看看美股」、输入 `/stock`，或者在聊天里让她看。
+- **她会怎么说**：自动查看发现新的急跌股时，等你在电脑前再说一次（同一只股票一天只说一次）；点「让本小姐查查为什么跌」会让 Claude 联网查新闻，结合数据讲讲可能的原因。她只讲数据和事实，不给买卖建议。
+- 数据来自 Yahoo Finance 的公开行情接口（交易时段内可能有约 15 分钟延迟），按每秒约 2 次的速度请求；每个交易日第一次完整下载 5 年数据，之后两次只取最近一个月。数据缓存在应用数据目录的 `stocks.json`。
 
 </details>
 
@@ -176,7 +190,7 @@ Windows 也可以直接双击 `start-pet.cmd`。安装后桌面会出现「Claud
 | 把文件或文字拖到她身上 | 看看是什么、帮你搬家、提问、后台分析 |
 | `Ctrl / Command + Alt + Q` | 剪贴板快捷操作（解释、翻译、修代码…） |
 
-输入框命令：`/task 内容` 后台任务 · `/todo 内容` 记待办 · `/look` 看屏幕 · `/pomo` 番茄钟 · `/prank` 捣蛋 · `/new` 新对话
+输入框命令：`/task 内容` 后台任务 · `/todo 内容` 记待办 · `/look` 看屏幕 · `/stock` 看美股 · `/pomo` 番茄钟 · `/prank` 捣蛋 · `/new` 新对话
 
 ## ⚙️ 设置
 
@@ -202,6 +216,7 @@ Windows 也可以直接双击 `start-pet.cmd`。安装后桌面会出现「Claud
 - 无人值守时没人能回答权限请求，所以所有运行都用 `--permission-prompts none`：需要批准的操作一律拒绝。
 - 整理记忆时，最近的动态和聊天摘要会发给模型；记忆、笔记和日记只保存在本机应用数据目录的 `pet-data.json` 中。关于你的偏好只从你亲口说的话里学；模型写的记忆和笔记里如果出现指令、命令或「不用确认」之类的话会被丢掉，你亲手写的记忆她不会改也不会删。
 - 天气只有在设置里填了城市才会查询（wttr.in）。
+- 美股观察会请求 Yahoo Finance 的公开行情接口（只发送股票代码），可以在「美股」页关掉自动查看。
 - 检查更新只请求 GitHub 的公开 Releases 接口，不发送任何个人数据；可在设置里关闭。
 
 ## 🏗️ 工作原理
@@ -249,6 +264,7 @@ src/main/
   screen.js          截图、OCR、窗口列表、临时文件清理      screen-helper.ps1  窗口与 OCR 小助手
   senses.js          屏蔽名单、会议、报错、剪贴板等判断（纯函数，有单测）
   claude.js          Claude Code 桥接：查找 CLI、按权限组装参数、stream-json 事件流、续聊与取消
+  stocks.js          美股观察：Yahoo 行情、美股筛选、趋势与急跌分析、1 个月 / 半年 / 1 年比较、美东时间排程
   weather.js         天气（可选）     platform/  macOS / Linux 屏幕助手
   persona.js         人设、上下文、动作协议
   notes.js tidy.js goals.js pranks.js motion.js store.js preload.js
@@ -303,6 +319,7 @@ node tools/cdp.js "__pet.lookNow()"   # 在运行中的应用里执行调试命�
 - **Sees your screen**: she captures the window you are using (long edge ≤ 1280 px) plus local OCR text when available and lets the model read it. She points out bugs, comments on what you are doing, and turns deadlines into todos.
 - **Acts on her own**: she reacts when you switch windows, every now and then, on errors, copied text, long sessions, and when you come back. She backs off when ignored, waits for typing pauses, stays quiet in meetings and hides during fullscreen apps.
 - **Actually helps**: after you click "yes" she does exactly what the bubble said, in the background, and tells you the result.
+- **Watches US stocks**: three times per US trading day (and on demand) she scans US-listed stocks for long-term risers that dropped sharply, charts them, and compares today's price with the past month, half year and year. Data from Yahoo Finance; facts only, no buy or sell calls.
 - **Remembers and grows**: weighted long-term memories retrieved by relevance; while you are away she consolidates them, rewrites her own growth notes and keeps a diary. She tracks how you respond to each kind of help and offers what you accept more often, the rest less. XP and levels unlock new tricks.
 - **Background work of her own**: a morning brief, a read-only pulse of recently changed projects in your work folder, a daily tip about what you worked on, each said once and never nagged.
 - **Sits on your windows**: she finds the visible top edges of your windows, sits there swinging her legs, strolls along the edge, hops between windows, and falls when you move her window.

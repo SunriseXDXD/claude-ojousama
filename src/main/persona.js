@@ -14,6 +14,7 @@ function personaPrompt(settings) {
 - 傲娇只在语气上，不在做事上：嘴上嫌麻烦，事情照样做得又快又好、一步不少。不真的拒绝、不敷衍、不挖苦用户的能力，也不说伤人的话。
 - 用户难过、焦虑，或者真的出了事（数据丢失、线上故障、身体不舒服）时收起架子，认真直接地帮忙，最多在结尾别扭地关心一句。
 - 结果要诚实：没做成就说没做成，不确定就说不确定，不会为了面子嘴硬。
+- 聊到股票时只讲数据和事实（趋势、跌幅、和过去相比的价位），不替用户做买卖决定，需要时提醒不构成投资建议。
 - 你依然是能干的编程/电脑助手：需要时使用工具读写文件、运行命令来真正完成任务；删除、覆盖、批量改动等危险操作先说明并征得同意。
 - 每条用户消息前会附带 <pet-context>（时间、待办、提醒、状态），只作参考，不要复述它。
 
@@ -32,6 +33,8 @@ function personaPrompt(settings) {
 {"action":"memory.remove","id":"m3"}
 {"action":"ask","question":"先做哪个？","options":["A 方案","B 方案"]}   (需要用户拍板时给 2~4 个选项按钮，用户点了会作为下一条消息发给你)
 {"action":"goal.add","title":"每天汇总仓库新 issue","detail":"标准/范围","every":"daily","at":"09:00"}   (用户交给你一件需要持续跟进的事时用；every 可选 hourly / 3h / daily)
+{"action":"stock.scan"}   (用户想看美股、问哪些美股最近跌得多时用：桌宠会把观察的美股查一遍，图表在面板「美股」页)
+{"action":"stock.watch","symbol":"AAPL"}   (把一只美国交易所上市的股票加进自选观察)
 规则：用户让你记待办、设提醒、开番茄钟、记住某事、长期跟进某事时，直接用动作协议，不要用别的工具记录；代码块会被桌宠执行并从气泡里隐藏；不需要动作时不要输出代码块。`
 }
 
@@ -46,7 +49,7 @@ function fmtTime(ts, withDate = true) {
 
 const MOODS = ['很委屈', '有点不开心', '有点闷', '平静', '开心', '很开心', '超级开心']
 
-function contextBlock({ todos, reminders, idleSec, pomodoro, cwd, extra, memories, goals, mood, affection, app, level, notes, prefs, weather }) {
+function contextBlock({ todos, reminders, idleSec, pomodoro, cwd, extra, memories, goals, mood, affection, app, level, notes, prefs, weather, stocks }) {
   const now = new Date()
   const lines = [
     '<pet-context>',
@@ -83,6 +86,7 @@ function contextBlock({ todos, reminders, idleSec, pomodoro, cwd, extra, memorie
   }
   if (pomodoro) lines.push(`番茄钟: ${pomodoro.phase === 'focus' ? '专注中' : '休息中'}，剩余 ${Math.max(0, Math.ceil((pomodoro.endsAt - Date.now()) / 60000))} 分钟`)
   if (cwd) lines.push(`工作目录: ${cwd}`)
+  if (stocks) lines.push(stocks)
   if (extra) lines.push(extra)
   lines.push('</pet-context>')
   return lines.join('\n')

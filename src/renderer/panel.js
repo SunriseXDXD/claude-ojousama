@@ -51,6 +51,7 @@ function showTab(name) {
   $$('nav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name))
   $$('.tab').forEach((t) => t.classList.toggle('active', t.id === 'tab-' + name))
   if (name === 'chat') setTimeout(() => $('#chat-input').focus(), 30)
+  if (name === 'stocks') refreshStocks(true)
 }
 $$('nav button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)))
 pet.on('panel:tab', showTab)
@@ -286,7 +287,7 @@ function renderSettings() {
     if (document.activeElement === input) continue
     const v = s[input.dataset.key]
     if (input.type === 'checkbox') input.checked = !!v
-    else input.value = v == null ? '' : String(v)
+    else input.value = v == null ? '' : Array.isArray(v) ? v.join(', ') : String(v)
   }
   for (const sel of $$('[data-rule]')) {
     if (document.activeElement !== sel) sel.value = (s.rules || {})[sel.dataset.rule] || sel.options[0].value
@@ -322,6 +323,7 @@ function render() {
     `当前版本 v${snap.version || '?'}` +
     (u.available ? ` · 🎁 新版本 v${u.available} 可以下载` : u.checkedAt ? (u.error ? ` · 上次检查失败（${u.error}）` : ` · 已是最新（${fmt(u.checkedAt)} 检查）`) : '')
   renderSettings()
+  refreshStocks()
   $('#note-post').textContent = snap.noteOpen ? '📌 便签已贴出' : '📌 贴到桌面'
 }
 
@@ -386,7 +388,7 @@ for (const input of $$('[data-key]')) {
     const key = input.dataset.key
     let v = input.type === 'checkbox' ? input.checked : input.value
     if (['scale'].includes(key)) v = Number(v)
-    if (['mischief', 'waterMinutes', 'llmRemarkMinutes', 'nagMinutes', 'agendaPerDay'].includes(key)) v = Math.max(0, Number(v) || 0)
+    if (['mischief', 'waterMinutes', 'llmRemarkMinutes', 'nagMinutes', 'agendaPerDay', 'stockDropPct'].includes(key)) v = Math.max(0, Number(v) || 0)
     pet.invoke('settings:set', { [key]: v })
   })
 }
@@ -467,6 +469,345 @@ $('#screen-refresh').addEventListener('click', async () => {
   }
 })
 $('#screen-pause').addEventListener('click', () => pet.invoke('screen:pause', snap && snap.screenPausedUntil > Date.now() ? 0 : 60))
+
+// ------------------------------------------------------------ US stocks
+
+const YEAR_MS = 365.25 * 86400e3
+const RANGE_DAYS = { '1m': 30, '6m': 182, '1y': 365, '5y': 5 * 366 }
+let stockData = null
+let stockVersion = -1
+let stockLoading = false
+let stockSel = null
+let stockSeries = null
+let stockRange = '1y'
+
+const signed = (v, d = 1) => (v >= 0 ? '+' : '−') + Math.abs(v * 100).toFixed(d) + '%'
+const money = (v) => '$' + (v >= 1000 ? Math.round(v).toLocaleString('en-US') : v.toFixed(2))
+const dir = (v) => (v > 0.0005 ? 'up' : v < -0.0005 ? 'down' : '')
+const arrow = (v) => (v > 0.0005 ? '▲' : v < -0.0005 ? '▼' : '—')
+const NS = 'http://www.w3.org/2000/svg'
+function svg(tag, attrs = {}) {
+  const e = document.createElementNS(NS, tag)
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v)
+  return e
+}
+function svgText(attrs, text) {
+  const t = svg('text', attrs)
+  t.textContent = text
+  return t
+}
+
+function sparkline(values, w = 76, h = 26) {
+  const s = svg('svg', { viewBox: `0 0 ${w} ${h}`, width: w, height: h, 'aria-hidden': 'true' })
+  if (!values || values.length < 2) return s
+  const lo = Math.min(...values)
+  const span = Math.max(...values) - lo || 1
+  const pts = values.map((v, i) => [2 + (i / (values.length - 1)) * (w - 6), h - 3 - ((v - lo) / span) * (h - 6)])
+  s.append(svg('polyline', { points: pts.map((p) => p.map((n) => n.toFixed(1)).join(',')).join(' '), fill: 'none', stroke: 'var(--s-price)', 'stroke-width': 1.5, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }))
+  const [x, y] = pts[pts.length - 1]
+  s.append(svg('circle', { cx: x, cy: y, r: 2.5, fill: 'var(--s-price)' }))
+  return s
+}
+
+function trendTag(t) {
+  if (t.label === 'unknown') return '历史不足 2 年'
+  return `${{ strong: '长期强势上涨', up: '长期上涨', flat: '长期横盘', down: '长期下跌' }[t.label]} ${signed(t.annual, 0)}/年`
+}
+
+function stockRow(item) {
+  const pick = () => selectStock(item.symbol)
+  const li = el('li', { tabindex: '0', role: 'button', 'data-sym': item.symbol, 'aria-label': `${item.symbol} ${item.name}`, onclick: pick, onkeydown: (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), pick()) })
+  if (item.symbol === stockSel) li.classList.add('sel')
+  const tags = el('div', { class: 'tags' }, el('span', { class: 'tag' }, trendTag(item.trend)))
+  if (item.rapid) tags.append(el('span', { class: 'tag' + (item.dip ? ' hot' : '') }, `▼ 比 1 个月高点 ${signed(item.dd1m)}`))
+  if (item.watched) tags.append(el('span', { class: 'tag' }, '自选'))
+  if (item.stale) tags.append(el('span', { class: 'tag' }, '旧数据'))
+  const left = el('div', { class: 'sym' }, el('b', {}, item.symbol), el('span', { class: 'nm' }, item.name), tags)
+  const m1 = item.windows.m1
+  const right = el('div', { class: 'q' }, el('b', {}, money(item.price)), m1 ? el('small', { class: dir(m1.change) }, `1 个月 ${arrow(m1.change)} ${signed(m1.change)}`) : null)
+  li.append(left, sparkline(item.spark), right)
+  return li
+}
+
+function renderStockStatus() {
+  const st = snap.stocks
+  if (!st) return
+  const s = snap.settings
+  $('#tab-stocks').classList.toggle('green-up', s.stockColors === 'green-up')
+  const auto = s.stockAuto === false ? '自动查看已关闭' : st.next ? `下次 ${fmt(st.next.at)}（美东 ${st.next.et}）` : ''
+  $('#stock-status').textContent = st.scanning
+    ? `正在看第 ${st.done}/${st.total} 只…`
+    : [st.scannedAt ? `上次 ${fmt(st.scannedAt)}，${st.count} 只里 ${st.dips} 只长期上涨又急跌` : '还没看过', auto].filter(Boolean).join(' · ')
+  $('#stock-scan').disabled = st.scanning
+  $('#stock-scan').textContent = st.scanning ? '查看中…' : '立即查看'
+  const local = (st.localAt || []).filter(Boolean).map((t) => fmt(t, false))
+  $('#stock-local-times').textContent = local.length ? `换算成你这里的时间：${local.join('、')}（美东夏令时切换时会变）。只在美股交易日（周一到周五）查看。` : ''
+}
+
+async function refreshStocks(force = false) {
+  if (!snap || !snap.stocks) return
+  renderStockStatus()
+  if (!$('#tab-stocks').classList.contains('active') || stockLoading) return
+  if (!force && snap.stocks.version === stockVersion) return
+  stockLoading = true
+  try {
+    stockVersion = snap.stocks.version
+    stockData = await pet.invoke('stock:view')
+    renderStockLists()
+    const items = (stockData && stockData.items) || []
+    if (stockSel && items.some((x) => x.symbol === stockSel)) await selectStock(stockSel, { quiet: true })
+    else if (!stockSel && items.length) await selectStock((items.find((x) => x.dip) || items[0]).symbol, { quiet: true })
+  } finally {
+    stockLoading = false
+  }
+}
+
+function renderStockLists() {
+  const items = (stockData && stockData.items) || []
+  const drop = Number(snap.settings.stockDropPct) || 10
+  $('#stock-dip-note').textContent = `近 5 年年化 ≥7% 且走势稳定，最近比 1 个月高点跌 ≥${drop}%（或 5 天跌 ≥${Math.round(drop * 0.7)}%）`
+  const dips = items.filter((x) => x.dip)
+  $('#stock-dips').replaceChildren(...(dips.length ? dips.map(stockRow) : [el('li', { class: 'empty' }, items.length ? '现在没有长期上涨又最近急跌的。' : '还没有数据，点「立即查看」。')]))
+  const q = $('#stock-filter').value.trim().toUpperCase()
+  const shown = items.filter((x) => !q || x.symbol.includes(q) || String(x.name).toUpperCase().includes(q))
+  $('#stock-all').replaceChildren(...shown.map(stockRow))
+  const errors = (stockData && stockData.errors) || []
+  const invalid = (stockData && stockData.invalid) || []
+  $('#stock-errors').textContent = [
+    invalid.length ? `这些不是有效的美股代码：${invalid.join('、')}` : '',
+    errors.length ? `跳过了 ${errors.length} 只：${errors.slice(0, 8).map((e) => `${e.symbol}（${e.error}）`).join('；')}${errors.length > 8 ? '…' : ''}` : '',
+  ].filter(Boolean).join('\n')
+}
+
+async function selectStock(symbol, { quiet = false } = {}) {
+  const item = stockData && stockData.items.find((x) => x.symbol === symbol)
+  if (!item) return
+  stockSel = symbol
+  stockSeries = await pet.invoke('stock:series', symbol)
+  $('#stock-detail').hidden = false
+  $('#sd-symbol').textContent = item.symbol
+  $('#sd-name').textContent = `${item.name} · ${item.exchange}`
+  $('#sd-price').textContent = money(item.price)
+  const tags = [el('span', { class: 'tag' }, trendTag(item.trend))]
+  if (item.rapid) tags.push(el('span', { class: 'tag' + (item.dip ? ' hot' : '') }, `▼ 比 1 个月高点 ${signed(item.dd1m)}`))
+  if (item.level) tags.push(el('span', { class: 'tag' }, `价位：${item.level}`))
+  tags.push(el('span', { class: 'muted' }, ` 截至 ${fmt(item.at)}`))
+  $('#sd-tags').replaceChildren(...tags)
+  $('#sd-trend').textContent = item.text.trend
+  $('#sd-drop').textContent = item.text.drop
+  $('#sd-level').textContent = item.text.level
+  renderCompare(item)
+  renderStockChart()
+  for (const li of $$('.stocks li[data-sym]')) li.classList.toggle('sel', li.dataset.sym === symbol)
+  if (!quiet) $('#tab-stocks').scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function rangeBar(w) {
+  const span = w.high - w.low || 1
+  const bar = el('div', { class: 'rbar', role: 'img', 'aria-label': `区间 ${money(w.low)} 到 ${money(w.high)}，均价 ${money(w.avg)}，现价在 ${Math.round(w.pos * 100)}% 位置` })
+  bar.append(el('i', { class: 'avg', style: `left:${(((w.avg - w.low) / span) * 100).toFixed(1)}%` }), el('i', { class: 'now', style: `left:${(w.pos * 100).toFixed(1)}%` }))
+  return bar
+}
+
+function renderCompare(item) {
+  const rows = item.text.compare.map((c) => {
+    const w = item.windows[c.key]
+    const row = el('div', { class: 'cmp' }, el('span', {}, c.label))
+    if (w) row.append(el('b', { class: dir(w.change) }, `${arrow(w.change)} ${signed(w.change)}`), rangeBar(w))
+    row.append(el('p', {}, c.text))
+    return row
+  })
+  $('#sd-compare').replaceChildren(...rows)
+}
+
+function niceTicks(lo, hi, n = 4) {
+  const raw = (hi - lo) / n
+  const mag = 10 ** Math.floor(Math.log10(raw))
+  const step = [1, 2, 2.5, 5, 10].map((k) => k * mag).find((v) => v >= raw)
+  const out = []
+  for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-6; v += step) out.push(Number(v.toFixed(6)))
+  return out
+}
+const tickLabel = (v) => (v >= 10000 ? `$${(v / 1000).toFixed(0)}K` : v >= 1000 ? `$${(v / 1000).toFixed(1)}K` : `$${Number.isInteger(v) ? v : v.toFixed(v < 10 ? 2 : 1)}`)
+const ymd = (t) => {
+  const d = new Date(t)
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+function dateTicks(t0, t1, range) {
+  const out = []
+  if (range === '1m') {
+    const d = new Date(t0)
+    d.setHours(12, 0, 0, 0)
+    while (d.getDay() !== 1) d.setDate(d.getDate() + 1) // Mondays
+    for (; d.getTime() <= t1; d.setDate(d.getDate() + 7)) out.push({ t: d.getTime(), label: `${d.getMonth() + 1}/${d.getDate()}` })
+  } else if (range === '5y') {
+    for (let y = new Date(t0).getFullYear() + 1; new Date(y, 0, 1).getTime() <= t1; y++) out.push({ t: new Date(y, 0, 1).getTime(), label: String(y) })
+  } else {
+    const every = range === '1y' ? 2 : 1
+    const d = new Date(t0)
+    d.setDate(1)
+    d.setMonth(d.getMonth() + 1)
+    for (let k = 0; d.getTime() <= t1; d.setMonth(d.getMonth() + 1), k++) {
+      if (k % every) continue
+      out.push({ t: d.getTime(), label: d.getMonth() === 0 ? String(d.getFullYear()) : `${d.getMonth() + 1}月` })
+    }
+  }
+  return out
+}
+
+function renderStockChart() {
+  const box = $('#sd-chart')
+  for (const b of $$('.seg button')) b.classList.toggle('on', b.dataset.range === stockRange)
+  if (!stockSeries || !stockSeries.points || stockSeries.points.length < 2) {
+    box.replaceChildren(el('p', { class: 'empty' }, '没有价格数据'))
+    $('#sd-legend').replaceChildren()
+    return
+  }
+  const all = stockSeries.points.map(([t, c]) => ({ t: t * 1000, c }))
+  // 200-day average over the whole history, then cut to the chosen range.
+  const ma = []
+  let sum = 0
+  for (let i = 0; i < all.length; i++) {
+    sum += all[i].c
+    if (i >= 200) sum -= all[i - 200].c
+    ma.push(i >= 199 ? sum / 200 : null)
+  }
+  const fit = stockSeries.fit
+  const lastT = all[all.length - 1].t
+  const cut = lastT - RANGE_DAYS[stockRange] * 86400e3
+  let i0 = all.findIndex((p) => p.t >= cut)
+  if (i0 < 0) i0 = 0
+  const pts = all.slice(i0).map((p, k) => ({ ...p, ma: ma[i0 + k], tr: fit && p.t >= fit.t0 ? Math.exp(fit.a + (fit.b * (p.t - fit.t0)) / YEAR_MS) : null }))
+  const series = [
+    { key: 'c', name: '收盘价', end: '', color: 'var(--s-price)' },
+    { key: 'ma', name: '200 日均线', end: '200 日均线', color: 'var(--s-ma)' },
+    { key: 'tr', name: '5 年趋势线', end: '趋势线', color: 'var(--s-trend)' },
+  ].filter((se) => pts.some((p) => p[se.key] != null))
+
+  const W = Math.max(280, box.clientWidth || 430)
+  const H = 214, L = 46, R = 70, T = 12, B = 24
+  const vals = pts.flatMap((p) => series.map((se) => p[se.key])).filter((v) => v != null)
+  let lo = Math.min(...vals)
+  let hi = Math.max(...vals)
+  const padv = (hi - lo) * 0.06 || hi * 0.02
+  lo -= padv
+  hi += padv
+  const t0 = pts[0].t
+  const x = (t) => L + ((t - t0) / (lastT - t0 || 1)) * (W - L - R)
+  const y = (v) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B)
+  const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', 'aria-label': `${stockSeries.symbol} 收盘价走势，${{ '1m': '近 1 个月', '6m': '近半年', '1y': '近 1 年', '5y': '近 5 年' }[stockRange]}` })
+  for (const v of niceTicks(lo, hi, 4)) {
+    s.append(svg('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), stroke: 'var(--s-grid)', 'stroke-width': 1 }))
+    s.append(svgText({ x: L - 6, y: y(v) + 3.5, 'text-anchor': 'end', class: 'ax' }, tickLabel(v)))
+  }
+  s.append(svg('line', { x1: L, x2: W - R, y1: H - B, y2: H - B, stroke: 'var(--s-axis)', 'stroke-width': 1 }))
+  for (const tk of dateTicks(t0, lastT, stockRange)) {
+    const xx = x(tk.t)
+    if (xx < L + 14 || xx > W - R - 10) continue
+    s.append(svgText({ x: xx, y: H - 8, 'text-anchor': 'middle', class: 'ax' }, tk.label))
+  }
+  const line = (key) => {
+    let d = ''
+    let pen = false
+    for (const p of pts) {
+      if (p[key] == null) {
+        pen = false
+        continue
+      }
+      d += `${pen ? 'L' : 'M'}${x(p.t).toFixed(1)},${y(p[key]).toFixed(1)}`
+      pen = true
+    }
+    return d
+  }
+  s.append(svg('path', { d: `${line('c')}L${x(lastT).toFixed(1)},${H - B}L${x(t0).toFixed(1)},${H - B}Z`, fill: 'var(--s-price)', opacity: 0.1 }))
+  for (const se of [...series].reverse()) s.append(svg('path', { d: line(se.key), fill: 'none', stroke: se.color, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }))
+  // End labels: the price first; a line whose label would collide relies on the legend.
+  const last = pts[pts.length - 1]
+  const used = []
+  for (const se of series) {
+    const v = last[se.key]
+    if (v == null) continue
+    const yy = Math.min(H - B - 4, Math.max(T + 4, y(v)))
+    if (used.some((u) => Math.abs(u - yy) < 13)) continue
+    used.push(yy)
+    s.append(svgText({ x: W - R + 8, y: yy + 3.5, class: se.key === 'c' ? 'endv' : 'endl' }, se.key === 'c' ? money(v) : se.end))
+  }
+  s.append(svg('circle', { cx: x(lastT), cy: y(last.c), r: 4, fill: 'var(--s-price)', stroke: 'var(--s-surface)', 'stroke-width': 2 }))
+  // Hover / keyboard: a crosshair snaps to the nearest trading day; the tooltip lists every line.
+  const cross = svg('line', { y1: T, y2: H - B, stroke: 'var(--s-axis)', 'stroke-width': 1, visibility: 'hidden' })
+  const dot = svg('circle', { r: 4, fill: 'var(--s-price)', stroke: 'var(--s-surface)', 'stroke-width': 2, visibility: 'hidden' })
+  const hit = svg('rect', { x: L, y: 0, width: W - L - R + 8, height: H - B, fill: 'transparent', tabindex: 0, 'aria-label': '用左右方向键逐日查看' })
+  s.append(cross, dot, hit)
+  const tip = el('div', { class: 'tip', hidden: '' })
+  let at = pts.length - 1
+  const show = (i) => {
+    at = Math.max(0, Math.min(pts.length - 1, i))
+    const p = pts[at]
+    const xx = x(p.t)
+    for (const [k, v] of [['x1', xx], ['x2', xx], ['visibility', 'visible']]) cross.setAttribute(k, v)
+    for (const [k, v] of [['cx', xx], ['cy', y(p.c)], ['visibility', 'visible']]) dot.setAttribute(k, v)
+    tip.replaceChildren(
+      el('div', { class: 'd' }, ymd(p.t)),
+      ...series.filter((se) => p[se.key] != null).map((se) => el('div', {}, el('i', { class: 'k', style: `background:${se.color}` }), el('b', {}, money(p[se.key])), se.name)),
+    )
+    tip.hidden = false
+    const scale = box.clientWidth / W || 1
+    const left = (xx + 12) * scale
+    tip.style.left = left + 150 > box.clientWidth ? `${Math.max(0, (xx - 12) * scale - tip.offsetWidth)}px` : `${left}px`
+  }
+  const hide = () => {
+    tip.hidden = true
+    cross.setAttribute('visibility', 'hidden')
+    dot.setAttribute('visibility', 'hidden')
+  }
+  const nearest = (t) => {
+    let a = 0
+    let b = pts.length - 1
+    while (b - a > 1) {
+      const m = (a + b) >> 1
+      if (pts[m].t < t) a = m
+      else b = m
+    }
+    return t - pts[a].t < pts[b].t - t ? a : b
+  }
+  hit.addEventListener('pointermove', (e) => {
+    const r = s.getBoundingClientRect()
+    const px = ((e.clientX - r.left) / r.width) * W
+    show(nearest(t0 + ((px - L) / (W - L - R)) * (lastT - t0)))
+  })
+  hit.addEventListener('pointerleave', hide)
+  hit.addEventListener('focus', () => show(at))
+  hit.addEventListener('blur', hide)
+  hit.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault()
+      show(at + (e.key === 'ArrowLeft' ? -1 : 1))
+    }
+  })
+  box.replaceChildren(s, tip)
+  $('#sd-legend').replaceChildren(...series.map((se) => el('span', {}, el('i', { style: `background:${se.color}` }), se.name)))
+}
+
+$('#stock-scan').addEventListener('click', () => pet.invoke('stock:scan'))
+$('#stock-filter').addEventListener('input', () => renderStockLists())
+for (const b of $$('.seg button')) {
+  b.addEventListener('click', () => {
+    stockRange = b.dataset.range
+    renderStockChart()
+  })
+}
+$('#sd-close').addEventListener('click', () => {
+  stockSel = null
+  $('#stock-detail').hidden = true
+  for (const li of $$('.stocks li.sel')) li.classList.remove('sel')
+})
+$('#sd-analyze').addEventListener('click', () => stockSel && pet.invoke('stock:analyze', stockSel))
+let stockResize = null
+window.addEventListener('resize', () => {
+  clearTimeout(stockResize)
+  stockResize = setTimeout(() => !$('#stock-detail').hidden && renderStockChart(), 120)
+})
 
 ;(async () => {
   snap = await pet.invoke('panel:state')

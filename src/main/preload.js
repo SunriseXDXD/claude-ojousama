@@ -61,6 +61,10 @@ const INVOKE = [
   'growth:reflect',
   'weather:refresh',
   'update:check',
+  'stock:scan',
+  'stock:view',
+  'stock:series',
+  'stock:analyze',
 ]
 const ON = ['pet:cmd', 'state', 'panel:tab', 'note:state']
 

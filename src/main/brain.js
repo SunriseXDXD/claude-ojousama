@@ -95,6 +95,7 @@ class Brain {
     pet.agendaTick(now)
     pet.weatherTick(now).catch(() => {})
     pet.updateTick(now) // checks GitHub Releases now and then; tells the user once per new version
+    if (pet.stockTick) pet.stockTick(now) // US stock watch: three scans per trading day (New York time)
     if (!info) {
       // Window observation is optional (Wayland, denied permission); reports still reach the user.
       // On Windows a missing answer is only a helper hiccup: wait for the next tick as before.
