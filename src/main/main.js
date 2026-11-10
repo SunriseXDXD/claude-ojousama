@@ -247,13 +247,74 @@ function startHitTest() {
 
 function currentBase() {
   if (state.sleeping) return state.sleeping === 'nap' && MANIFEST.nap ? 'nap' : 'sleep'
-  if (state.chatRun) return state.activity || 'thinking'
+  const feeling = heldEmotion()
+  // While she works on an answer a held feeling stays on her face; tools (typing, searching) show instead.
+  if (state.chatRun && (!feeling || (state.activity && state.activity !== 'thinking'))) return state.activity || 'thinking'
+  if (feeling) return feeling.name
   if (state.pomodoro && state.pomodoro.phase === 'focus') return 'typing'
   return 'idle'
 }
 function refreshBase() {
   sendPet({ type: 'anim', name: currentBase(), mode: 'base' })
+  // Wake up again when a timed feeling runs out (heldEmotion() then hands back the one underneath).
+  clearTimeout(state.emotionTimer)
+  if (state.emotion) state.emotionTimer = setTimeout(refreshBase, Math.max(50, state.emotion.endsAt - Date.now() + 30))
 }
+
+// ---------------------------------------------------------------- held feelings
+// A feeling from the conversation stays on her face as her base pose (one-shot reactions return to
+// it): 'touch' = until the user touches or answers her, a number = for that many ms (e.g. while she
+// talks). A timed feeling can sit on top of a 'touch' one and gives it back when it runs out.
+
+const TOUCH_MAX_MS = 45 * 60000 // even "until you touch me" ends eventually
+const TALK_MIN_MS = 6000
+const TALK_MAX_MS = 60000
+
+function heldEmotion(now = Date.now()) {
+  let e = state.emotion
+  while (e && now >= e.endsAt) e = e.prev || null
+  state.emotion = e
+  return e
+}
+function holdEmotion(name, until) {
+  if (!MANIFEST[name]) return
+  const now = Date.now()
+  const touch = until === 'touch'
+  const cur = heldEmotion(now)
+  const below = cur ? (cur.touch ? cur : cur.prev) : null // a feeling that waits for the user stays underneath
+  state.emotion = touch
+    ? { name, touch: true, endsAt: now + TOUCH_MAX_MS, prev: null }
+    : { name, touch: false, endsAt: now + Math.max(1500, Number(until) || TALK_MIN_MS), prev: below && below.name !== name ? below : null }
+  refreshBase()
+}
+/** How long a feeling should last while she is talking: as long as her bubble shows. */
+const talkMs = () => Math.min(TALK_MAX_MS, Math.max(TALK_MIN_MS, (state.bubbleUntil || 0) - Date.now()))
+/** A feeling that waits for the user to touch or answer her (it may sit under a timed one). */
+function waitingEmotion() {
+  const e = heldEmotion()
+  return e && (e.touch ? e : e.prev && e.prev.touch ? e.prev : null)
+}
+const emotionWaiting = () => !!waitingEmotion()
+/** The user touched or answered her: a feeling that waited for that ends. Returns its name. */
+function endHeld() {
+  const waiting = waitingEmotion()
+  if (!waiting) return null
+  if (waiting === state.emotion) state.emotion = null
+  else state.emotion.prev = null
+  refreshBase()
+  return waiting.name
+}
+
+// What she feels at once when the user writes to her (before her answer arrives). First match wins.
+// 喜欢你 / 爱你 only count at the end of a phrase: 「我不喜欢你写的代码」 is about the code, not her.
+const REACTIONS = [
+  { re: /(不(喜欢|爱)你(?=$|[\s。.！!？?，,~～了啦呀啊哦嘛呢…❤😘🥰💕])|讨厌你|烦死你|你走开|滚开|闭嘴|不想理你|hate you|shut up)/i, anim: 'sulk', until: 'touch', mood: -1, why: '被嫌弃了' },
+  { re: /((?<!不)(喜欢|爱)你(?=$|[\s。.！!？?，,~～了啦呀啊哦嘛呢…❤😘🥰💕])|爱死你|想你了|嫁给我|做我女朋友|么么哒?|亲亲|抱抱|love\s*(you|u)\b|\bily\b|marry me|😘|🥰|💕|❤️?)/i, anim: 'shy', until: 'touch', mood: +1, why: '被告白了' },
+  { re: /(笨蛋|傻瓜|baka|idiot|stupid|dummy)/i, anim: 'angry', until: 12000 },
+  { re: /(谢谢|多谢|可爱|真棒|好棒|厉害|辛苦了|你最好了|thank|cute|good girl|awesome)/i, anim: 'shy', until: 15000, mood: +1, why: '被夸了' },
+  { re: /(哈哈|hhh|笑死|233|lol|lmao|haha|😂|🤣)/i, anim: 'laugh', until: 8000 },
+]
+const reactionFor = (text) => REACTIONS.find((r) => r.re.test(text)) || null
 function once(name, loops = 1) {
   const a = MANIFEST[name]
   const ms = a ? (a.frames / a.fps) * 1000 * loops : 500
@@ -938,7 +999,7 @@ async function chatTurn(job) {
     const ask = actions.find((a) => a.action === 'ask' && a.question)
     if (text && !ask) say(text)
     else if (!ask) hush()
-    once('happy', 1)
+    if (!heldEmotion()) once('happy', 1)
     gainXp(2, '聊天')
     if (Date.now() - started > 60000) notify('哼，本小姐做完了', short(text || job.display || job.text, 80))
     await runActions(actions.filter((a) => a !== ask))
@@ -957,7 +1018,7 @@ async function chatTurn(job) {
 async function presentAsk(text, ask, onChoose) {
   const options = (Array.isArray(ask.options) ? ask.options : []).map(String).filter(Boolean).slice(0, 4)
   const body = (text ? text + '\n\n' : '') + `❓ ${ask.question}`
-  if (!state.perch) once('confused', 1)
+  if (!state.perch) holdEmotion('confused', options.length ? 90000 : TALK_MIN_MS) // until answered (a click on an option ends it)
   if (!options.length) return say(body)
   const c = await say(body, { ttl: 90000, buttons: options.map((o, i) => ({ id: String(i), label: short(o, 16), title: o })) })
   if (c == null || !/^\d+$/.test(c)) return // timed out or replaced
@@ -1121,7 +1182,8 @@ async function runActions(actions) {
           break
         }
         case 'emote':
-          if (MANIFEST[a.anim]) once(a.anim, 2)
+          // The feeling stays on her face while she talks; "hold": true keeps it until the user touches or answers her.
+          if (MANIFEST[a.anim]) holdEmotion(a.anim, a.hold === true ? 'touch' : talkMs())
           break
         case 'file.move': {
           if (!a.from || !a.to) break
@@ -2654,11 +2716,14 @@ function handleInput(text) {
   if (t === '/look') return lookNow()
   if (t === '/stock') return runStockScan({ manual: true })
   touchMood('陪我聊天')
-  // She reacts before she answers: praise makes her shy, a joke makes her laugh.
-  if (/(谢谢|多谢|可爱|真棒|好棒|厉害|喜欢你|爱你|辛苦了|thank|love you|cute)/i.test(t)) {
-    once('shy', 2)
-    changeMood(+1, '被夸了')
-  } else if (/(哈哈|hhh|笑死|233|lol|haha|😂|🤣)/i.test(t)) once('laugh', 2)
+  endHeld() // answering her counts as coming back to her
+  // She reacts before she answers: a confession leaves her shy until you touch or answer her,
+  // praise makes her shy for a while, a joke makes her laugh.
+  const r = reactionFor(t)
+  if (r) {
+    holdEmotion(r.anim, r.until)
+    if (r.mood) changeMood(r.mood, r.why)
+  }
   chat(t, { typed: true })
 }
 
@@ -2857,6 +2922,7 @@ function wireIpc() {
   ipcMain.on('pet:drag-start', () => {
     if (!DESKTOP.floating) return
     if (state.dragging || !petWin) return
+    endHeld()
     state.moveGen = (state.moveGen || 0) + 1 // landings and climbs in flight stop touching her
     if (state.perch) {
       state.perch = null // picked up from her seat
@@ -2902,6 +2968,13 @@ function wireIpc() {
   let pokes = []
   ipcMain.on('pet:click', (_e, count) => {
     if (count < 3) touchMood('被摸摸')
+    const waited = endHeld()
+    if (waited && count === 1) {
+      // The first touch after she kept a feeling up gets her reaction (the next click opens the input).
+      once('surprise', 1)
+      say(P.pick(P.LINES.touched[waited] || P.LINES.touched.other), { ttl: 3500 })
+      return
+    }
     if (count >= 3) {
       pokes = []
       once('dizzy', 2)
@@ -2920,6 +2993,7 @@ function wireIpc() {
     }
   })
   ipcMain.on('pet:context-menu', () => {
+    endHeld()
     Menu.buildFromTemplate(menuTemplate()).popup({ window: petWin })
   })
   ipcMain.on('pet:input-state', (_e, open) => {
@@ -2938,6 +3012,7 @@ function wireIpc() {
     } else handleInput(t)
   })
   ipcMain.on('pet:button', (_e, { id, value }) => {
+    endHeld()
     const resolve = state.pendingSay.get(id)
     if (resolve) {
       state.pendingSay.delete(id)
@@ -2947,7 +3022,10 @@ function wireIpc() {
   })
   ipcMain.on('pet:bubble-click', () => openPanel('chat'))
   ipcMain.on('pet:bubble-closed', () => (state.bubbleUntil = 0))
-  ipcMain.on('pet:drop', (_e, data) => onDrop(data || {}))
+  ipcMain.on('pet:drop', (_e, data) => {
+    endHeld()
+    onDrop(data || {})
+  })
 
   ipcMain.handle('panel:state', () => snapshot())
   ipcMain.handle('chat:send', (_e, text) => handleInput(text))
@@ -3068,8 +3146,10 @@ const controller = {
   /** true = dozing at her desk; 'nap' = curled up on her cushion (away for a long time / at night). */
   setSleeping(v) {
     state.sleeping = v === 'nap' ? 'nap' : !!v
+    if (v === 'nap') state.emotion = null // she slept on it
     refreshBase()
   },
+  emotionWaiting,
   // proactive behaviour
   canInterrupt,
   userPresent,
@@ -3220,6 +3300,7 @@ if (!app.requestSingleInstanceLock()) {
         growth: () => growth, agenda: () => agenda, weather: () => weather, runBackground, queueSuggestion, deliverSuggestion, gainXp,
         showSign, idleScene, weatherTick, updater: () => updater, updateTick, announceUpdate, checkUpdateNow,
         proactive: () => proactive,
+        handleInput, currentBase, heldEmotion, holdEmotion, endHeld,
         stocks: () => stocks, runStockScan, analyzeStock, stockTick,
         win: () => petWin,
         panel: () => panelWin,

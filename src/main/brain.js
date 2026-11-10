@@ -381,7 +381,8 @@ class Brain {
     const pet = this.pet
     const s = pet.settings()
     // While she sits on a window she just sits (desk scenes would float in mid-air).
-    if (!s.idleActions || now < this.nextIdle || pet.isBusy() || pet.isPerched()) return false
+    // Also not while she keeps a feeling up for the user (shy after a confession, sulking…).
+    if (!s.idleActions || now < this.nextIdle || pet.isBusy() || pet.isPerched() || (pet.emotionWaiting && pet.emotionWaiting())) return false
     const L = this.level()
     this.nextIdle = now + rand(L.idleEvery[0], L.idleEvery[1]) * MIN
     const mood = pet.mood()

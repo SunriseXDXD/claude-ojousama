@@ -60,6 +60,7 @@ vm.createContext(context)
 vm.runInContext(source + `
 globalThis.testMain = {
   startRun, snapshot, glance, setSettings, refreshScreenCapabilities, createPetWindow, togglePet,
+  state, controller, currentBase, heldEmotion, holdEmotion, endHeld, reactionFor, runActions,
   initialize(data, sense) {
     store = { get: k => data[k], set: (k,v) => data[k]=v, patch: (k,p) => data[k]={...data[k],...p} };
     screenSense = sense;
@@ -113,6 +114,44 @@ main.initialize(data, sense)
   assert.equal(snap.backendPath, '/test/claude')
   assert.equal(snap.screenCapabilities, capabilities)
   assert.equal(await main.refreshScreenCapabilities(), capabilities)
+  // Held feelings: a confession keeps her shy (as her base pose) until the user touches or answers her.
+  const poses = []
+  lastWindow.webContents.send = (_ch, cmd) => cmd && cmd.type === 'anim' && cmd.mode === 'base' && poses.push(cmd.name)
+  assert.equal(main.reactionFor('我爱你').anim, 'shy')
+  assert.equal(main.reactionFor('i love you').until, 'touch')
+  assert.equal(main.reactionFor('我不喜欢你写的代码'), null)
+  assert.equal(main.reactionFor('讨厌你').anim, 'sulk')
+  assert.equal(main.reactionFor('谢谢').until, 15000)
+  main.holdEmotion('shy', 'touch')
+  assert.equal(main.currentBase(), 'shy')
+  assert.equal(poses.at(-1), 'shy')
+  main.state.chatRun = true
+  main.state.activity = 'thinking'
+  assert.equal(main.currentBase(), 'shy', 'thinking about the answer keeps the feeling')
+  main.state.activity = 'typing'
+  assert.equal(main.currentBase(), 'typing', 'running a tool shows the work')
+  main.state.chatRun = null
+  main.state.activity = null
+  main.holdEmotion('angry', 5000)
+  assert.equal(main.currentBase(), 'angry', 'a timed feeling plays on top')
+  assert.equal(main.controller.emotionWaiting(), true, 'the shy one still waits underneath')
+  main.state.emotion.endsAt = Date.now() - 1
+  assert.equal(main.currentBase(), 'shy', 'and comes back when the timed one runs out')
+  assert.equal(main.endHeld(), 'shy')
+  assert.equal(main.currentBase(), 'idle')
+  assert.equal(poses.at(-1), 'idle')
+  main.holdEmotion('laugh', 8000)
+  assert.equal(main.endHeld(), null, 'touching her does not cut a timed feeling short')
+  assert.equal(main.currentBase(), 'laugh')
+  await main.runActions([{ action: 'emote', anim: 'cry', hold: true }])
+  assert.equal(main.heldEmotion().name, 'cry')
+  assert.equal(main.heldEmotion().touch, true, 'emote with hold:true waits for the user')
+  await main.runActions([{ action: 'emote', anim: 'cheer' }])
+  assert.ok(main.heldEmotion().endsAt - Date.now() >= 5000, 'a plain emote lasts while she talks (6 s at least)')
+  main.controller.setSleeping('nap')
+  assert.equal(main.heldEmotion(), null, 'a proper nap ends it')
+  assert.equal(main.currentBase(), 'nap')
+  main.controller.setSleeping(false)
   assert.equal(desktopMode('linux',{WAYLAND_DISPLAY:'wayland-0',DISPLAY:':1'}).xwayland,true)
   assert.equal(desktopMode('linux',{WAYLAND_DISPLAY:'wayland-0'}).floating,false)
   assert.equal(desktopMode('linux',{DISPLAY:':0'}).floating,true)
@@ -143,5 +182,5 @@ main.initialize(data, sense)
     setAutoStart({isPackaged:false,setLoginItemSettings:settings=>login.push(settings)},true,'/source',{platform:'darwin',executable:'/Electron'})
     assert.deepEqual(login,[{openAtLogin:true,path:'/Electron',args:['/source']}])
   } finally { fs.rmSync(startupDir,{recursive:true,force:true}) }
-  console.log('PASS main Claude backend, manual-image, capability and desktop-mode integration')
+  console.log('PASS main Claude backend, manual-image, capability, held-feeling and desktop-mode integration')
 })().catch(error => { console.error(error); process.exitCode=1 })

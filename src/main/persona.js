@@ -23,7 +23,7 @@ function personaPrompt(settings) {
 {"action":"todo.done","id":"t3"}
 {"action":"todo.remove","id":"t3"}
 {"action":"remind","text":"开会","at":"2026-10-25 15:00"}   或   {"action":"remind","text":"喝水","in":30}   (in 单位为分钟，可加 "repeat":"daily")
-{"action":"emote","anim":"happy"}   (anim 可选 happy / wave / surprise / thinking / error / look / magnify / point / giggle / laugh / cheer / thumbsup / shy / confused / dizzy / sulk / angry / cry / stretch / water / eat / read / write / phone / yawn / shush / music / dance / magic / gift)
+{"action":"emote","anim":"happy"}   (anim 可选 happy / wave / surprise / thinking / error / look / magnify / point / giggle / laugh / cheer / thumbsup / shy / confused / dizzy / sulk / angry / cry / stretch / water / eat / read / write / phone / yawn / shush / music / dance / magic / gift；表情会在你说话时一直保持。加 "hold":true 就一直保持到用户来碰你或回你，适合被告白时害羞、闹别扭时鼓腮、委屈时掉眼泪)
 {"action":"sign","text":"加油！"}   (举起小木牌，牌子上写 ≤6 个字，适合鼓励、庆祝、简短提醒)
 {"action":"file.move","from":"C:\\\\a\\\\b.txt","to":"D:\\\\目标文件夹"}   (桌宠会亲自把文件拖过去，执行前会让用户确认；移动单个/少量文件时优先用它)
 {"action":"pomodoro","minutes":25}
@@ -247,6 +247,13 @@ const LINES = {
   kitten: ['小猫来串门了……本小姐才没有很高兴。', '喵……好、好软。不许笑。', '小猫咪，你从哪里来的？……可以多待一会儿。'],
   magicShow: ['看好了，本小姐只表演一次。', '阿布拉卡达布拉！', '眼睛别眨，见证本小姐的魔法。'],
   magicMemo: ['变！一朵向日葵 🌻 ……送你了。', '魔法便签：今天会很顺利 ✨（本小姐保证）', '变出来了：休息一下吧 ☕'],
+  touched: {
+    shy: ['呀！……干、干嘛突然碰本小姐！', '才、才没有一直在害羞！你看错了！', '……哼。算你还知道来理本小姐。'],
+    sulk: ['……哼，这次就原谅你。', '知道来哄本小姐了？……下不为例。', '哼。本小姐才没有一直等你。'],
+    cry: ['……才没哭。眼睛进沙子了而已。', '呜……好吧，本小姐不难过了。'],
+    angry: ['……知道错了就好。', '哼，本小姐大人有大量。'],
+    other: ['嗯？……干嘛。', '……被你发现了。'],
+  },
   giftRandom: ['这朵向日葵🌻……顺手摘的，给你。不要算了。', '礼物🎁。别误会，只是多出来的。', '……今天辛苦了。这个给你，收下就行，不许问为什么。'],
 }
 

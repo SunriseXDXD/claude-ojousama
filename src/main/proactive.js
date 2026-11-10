@@ -221,7 +221,7 @@ class Proactive {
 
     if (now >= this.nextPrank) {
       this.schedulePrank()
-      if (s.mischief > 0) {
+      if (s.mischief > 0 && !(pet.emotionWaiting && pet.emotionWaiting())) {
         pet.prank()
         return
       }
@@ -241,7 +241,7 @@ class Proactive {
 
     if (s.wander && now >= this.nextWander) {
       this.nextWander = now + rand(4, 10) * MIN
-      if (!pet.isPerched()) pet.wander() // sitting on a window: stay put
+      if (!pet.isPerched() && !(pet.emotionWaiting && pet.emotionWaiting())) pet.wander() // sitting on a window (or waiting for you to touch her): stay put
     }
   }
 
