@@ -388,7 +388,7 @@ for (const input of $$('[data-key]')) {
     const key = input.dataset.key
     let v = input.type === 'checkbox' ? input.checked : input.value
     if (['scale'].includes(key)) v = Number(v)
-    if (['mischief', 'waterMinutes', 'llmRemarkMinutes', 'nagMinutes', 'agendaPerDay', 'stockDropPct'].includes(key)) v = Math.max(0, Number(v) || 0)
+    if (['mischief', 'waterMinutes', 'llmRemarkMinutes', 'nagMinutes', 'agendaPerDay', 'stockDropPct', 'boardHideSeconds'].includes(key)) v = Math.max(0, Number(v) || 0)
     pet.invoke('settings:set', { [key]: v })
   })
 }

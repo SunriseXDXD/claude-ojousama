@@ -252,7 +252,9 @@ class ClaudeRun extends EventEmitter {
     else if (e.type === 'assistant') for (const block of (e.message && e.message.content) || []) this._block(block)
     else if (e.type === 'user') {
       const content = e.message && Array.isArray(e.message.content) ? e.message.content : []
-      for (const b of content) if (b && b.type === 'tool_result') this.emit('event', { type: 'tool_result', tool: this.toolNames.get(b.tool_use_id) || 'tool', status: b.is_error ? 'failed' : 'completed' })
+      // tool_use_result is the CLI's structured outcome (for Edit / Write: the patch that was applied).
+      const result = e.tool_use_result && typeof e.tool_use_result === 'object' ? { result: e.tool_use_result } : {}
+      for (const b of content) if (b && b.type === 'tool_result') this.emit('event', { type: 'tool_result', tool: this.toolNames.get(b.tool_use_id) || 'tool', status: b.is_error ? 'failed' : 'completed', ...result })
     } else if (e.type === 'result') this._result(e)
   }
 

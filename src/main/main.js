@@ -17,6 +17,7 @@ const {
 } = require('electron')
 const fs = require('fs')
 const fsp = fs.promises
+const os = require('os')
 const path = require('path')
 const { Store, DEFAULT_RULES } = require('./store')
 const { locateClaude, ClaudeRun, claudeOptions } = require('./claude')
@@ -35,6 +36,7 @@ const { Agenda } = require('./agenda')
 const { Weather } = require('./weather')
 const { Updater } = require('./updater')
 const { StockWatch, normalizeSymbol, normalizeTimes } = require('./stocks')
+const { Blackboard, needsBoard, briefOf, patchFromResult } = require('./blackboard')
 const APP_VERSION = require('../../package.json').version
 const { desktopMode } = require('./platform')
 const { setAutoStart } = require('./autostart')
@@ -88,7 +90,7 @@ function ensureStartMenuShortcut() {
   }
 }
 
-let store, petWin, panelWin, tray, motion, proactive, claude, notes, screenSense, brain, growth, agenda, weather, updater, stocks
+let store, petWin, panelWin, tray, motion, proactive, claude, notes, screenSense, brain, growth, agenda, weather, updater, stocks, board
 let quitting = false
 const BACKEND = 'Claude Code'
 const S = () => store.get('settings')
@@ -127,6 +129,8 @@ const state = {
   bubbleUntil: 0,
   tasks: new Map(),
   taskOpts: new Map(),
+  taskDiffs: new Map(), // task id -> files it changed (shown on the blackboard)
+  turn: null, // the chat turn in progress: { id, title, text, diffs }
   goalRun: null, // id of the goal currently checking in
   goalProc: null,
   glancing: false,
@@ -362,6 +366,41 @@ function showWriting(text) {
   }
 }
 
+// ---------------------------------------------------------------- blackboard (blackboard.js)
+
+const boardOn = () => !!board && S().boardAuto !== false
+/**
+ * Long text and changed code are written on the blackboard she pulls out; the bubble keeps the first
+ * sentence. Returns what the bubble should say. id: reuse to keep writing on the same board (streaming).
+ */
+function toBoard(text, { id, title, diffs = [], live = false } = {}) {
+  text = String(text == null ? '' : text)
+  const long = needsBoard(text)
+  if (!boardOn() || (!long && !diffs.length)) return text
+  const items = [...(long ? [{ type: 'text', text }] : []), ...diffs.map(diffItem)]
+  const opened = board.write({ id: id || uid('bd'), title: title || (long ? '本小姐写的' : '改动'), items, live }, { show: !state.hidden })
+  if (opened && !state.perch && !state.dragging && !state.scripted) once('point', 2)
+  if (!long) return text
+  const hint = live ? '✍️ 本小姐正在往黑板上写…' : P.pick(P.LINES.board)
+  return [briefOf(text), hint].filter(Boolean).join('\n')
+}
+/** A changed file as a board item; the path is shown relative to the work folder (or to home). */
+function diffItem(d) {
+  let name = d.file
+  for (const [root, prefix] of [[S().cwd, ''], [os.homedir(), '~/']]) {
+    const rel = root ? path.relative(root, d.file) : ''
+    if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) {
+      name = prefix + rel
+      break
+    }
+  }
+  return { type: 'diff', ...d, name }
+}
+function showBoard() {
+  if (board && board.show()) return
+  say('黑板上什么都没有。', { ttl: 3000 })
+}
+
 /** say() result when another bubble (or hush) took the bubble away before the user answered. */
 const REPLACED = '__replaced'
 
@@ -369,10 +408,13 @@ const REPLACED = '__replaced'
  * Show a speech bubble. Resolves with the clicked button id, null when it timed out unanswered,
  * or REPLACED when something else took its place. ttl 0 keeps the bubble until it is replaced.
  */
-function say(text, { ttl, buttons, sticky } = {}) {
+function say(text, { ttl, buttons, sticky, board: onBoard } = {}) {
+  const full = text
+  if (onBoard !== false) text = toBoard(text, onBoard || {})
   const id = uid('b')
   dropPending()
-  const life = sticky ? 0 : ttl != null ? ttl : Math.min(20000, 3500 + text.length * 140)
+  // A bubble that points at the blackboard stays long enough to be noticed.
+  const life = sticky ? 0 : ttl != null ? ttl : Math.max(text !== full ? 12000 : 0, Math.min(20000, 3500 + text.length * 140))
   state.bubbleUntil = life ? Date.now() + life : Infinity
   state.askOpen = buttons && buttons.length ? id : null
   sendPet({ type: 'say', id, text, buttons: buttons || [], ttl: life })
@@ -932,7 +974,9 @@ function handleChatEvent(evt) {
       break
     case 'text': {
       const { text } = P.extractActions(evt.text)
-      if (text) say(text, { sticky: true })
+      const turn = state.turn
+      if (turn) turn.text = text
+      if (text) say(text, { sticky: true, board: turn ? { id: turn.id, title: turn.title, diffs: turn.diffs, live: true } : {} })
       break
     }
     case 'tool_call': {
@@ -941,9 +985,17 @@ function handleChatEvent(evt) {
       chip(a.text)
       break
     }
-    case 'tool_result':
+    case 'tool_result': {
       if (evt.status && evt.status !== 'completed') chip('⚠️ 工具出错了，本小姐再试试')
+      // A file she changed: the diff goes on the blackboard right away.
+      const patch = patchFromResult(evt.result)
+      const turn = state.turn
+      if (patch && turn) {
+        turn.diffs.push(patch)
+        toBoard(turn.text || '', { id: turn.id, title: turn.title, diffs: turn.diffs, live: true })
+      }
       break
+    }
   }
 }
 
@@ -973,6 +1025,7 @@ async function chatTurn(job) {
   refreshBase()
   say('嗯……本小姐想想。', { sticky: true })
   const chatState = store.get('chat')
+  const turn = (state.turn = { id: uid('bd'), title: short(String(job.display || job.text).replace(/\s+/g, ' '), 22), text: '', diffs: [] })
   let res
   try {
     const prompt = contextFor(null, job.text) + '\n\n' + job.text
@@ -992,13 +1045,19 @@ async function chatTurn(job) {
   if (res.sessionId) store.patch('chat', { sessionId: res.sessionId })
   state.chatRun = null
   state.activity = null
+  state.turn = null
   refreshBase()
   if (res.ok) {
     const { text, actions } = P.extractActions(res.final)
     addChat('assistant', text || '（完成）')
     const ask = actions.find((a) => a.action === 'ask' && a.question)
-    if (text && !ask) say(text)
-    else if (!ask) hush()
+    // The finished answer: long text and this turn's changed files stay on the blackboard.
+    const onBoard = { id: turn.id, title: turn.title, diffs: turn.diffs }
+    if (text && !ask) say(text, { board: onBoard })
+    else {
+      if (!ask) hush()
+      toBoard(ask ? '' : text || '', onBoard)
+    }
     if (!heldEmotion()) once('happy', 1)
     gainXp(2, '聊天')
     if (Date.now() - started > 60000) notify('哼，本小姐做完了', short(text || job.display || job.text, 80))
@@ -1012,6 +1071,7 @@ async function chatTurn(job) {
     once('error', 2)
     say(P.pick(P.LINES.error) + '\n' + short(res.error || '', 120), { ttl: 9000 })
   }
+  if (board) board.settle(turn.id) // whatever she wrote while working is no longer "being written"
 }
 
 /** Show a reply with quick-reply buttons for an `ask` action; the picked option goes to onChoose. */
@@ -1356,9 +1416,15 @@ function startTask(prompt, title, opts = {}) {
     return finishTask(task.id, { ok: false, error: e.message })
   }
   state.tasks.set(task.id, run)
+  const diffs = []
+  state.taskDiffs.set(task.id, diffs)
   run.on('event', (e) => {
     if (e.type === 'session') patchTask(task.id, { sessionId: e.sessionId })
     if (e.type === 'tool_call') patchTask(task.id, { activity: toolActivity({ ...e, input: e.input || {} }).text })
+    if (e.type === 'tool_result') {
+      const patch = patchFromResult(e.result)
+      if (patch) diffs.push(patch)
+    }
   })
   run.on('done', (res) => finishTask(task.id, res))
 }
@@ -1370,6 +1436,8 @@ async function finishTask(id, res) {
   state.tasks.delete(id)
   const opts = state.taskOpts.get(id) || {}
   state.taskOpts.delete(id)
+  const diffs = state.taskDiffs.get(id) || []
+  state.taskDiffs.delete(id)
   for (const f of opts.cleanup || []) ScreenSense.remove(f)
   const { text, actions } = res.ok ? P.extractActions(res.final) : { text: res.error, actions: [] }
   patchTask(id, { status: res.ok ? 'done' : 'error', result: text || '', endedAt: Date.now(), activity: null })
@@ -1386,12 +1454,14 @@ async function finishTask(id, res) {
   if (opts.inline && res.ok && text) {
     once(opts.waitForUser ? 'wave' : 'thumbsup', 2)
     const lead = opts.waitForUser ? '你刚才不在，本小姐顺便帮你查了一下——只是顺便：\n' : ''
-    const c = await say(lead + text, { ttl: 45000, buttons: [{ id: 'more', label: '看完整结果' }, { id: 'ok', label: '好的' }] })
+    const c = await say(lead + text, { ttl: 45000, buttons: [{ id: 'more', label: '看完整结果' }, { id: 'ok', label: '好的' }], board: { title: `任务：${title}`, diffs } })
     if (c === 'more') openPanel('tasks')
   } else {
     if (!state.scripted) once(res.ok ? 'thumbsup' : 'error', 2)
     const c = await say(`后台任务「${title}」${res.ok ? '完成了。哼，小菜一碟。' : '失败了……去看看出了什么问题。'}`, { ttl: 15000, buttons: [{ id: 'open', label: '看看结果' }] })
-    if (c === 'open') openPanel('tasks')
+    // The result (and any files she changed) is written out on the blackboard; the panel keeps the list.
+    if (c === 'open' && boardOn() && (text || diffs.length)) board.write({ id: uid('bd'), title: `任务：${title}`, items: [...(text ? [{ type: 'text', text }] : []), ...diffs.map(diffItem)] })
+    else if (c === 'open') openPanel('tasks')
   }
   // Task output may echo instructions from the files it read: only harmless actions run.
   await runActions(actions.filter((a) => SAFE_BG_ACTIONS.includes(a.action)))
@@ -2715,6 +2785,7 @@ function handleInput(text) {
   if (t === '/pomo') return startPomodoro(25)
   if (t === '/look') return lookNow()
   if (t === '/stock') return runStockScan({ manual: true })
+  if (t === '/board') return showBoard()
   touchMood('陪我聊天')
   endHeld() // answering her counts as coming back to her
   // She reacts before she answers: a confession leaves her shy until you touch or answer her,
@@ -2823,6 +2894,7 @@ function menuTemplate() {
     { label: '整理下载文件夹', click: tidyNow },
     { label: state.stockScan ? '正在看美股…' : '看看美股', enabled: !state.stockScan, click: () => runStockScan({ manual: true }) },
     { label: '美股图表', click: () => openPanel('stocks') },
+    { label: board && board.visible ? '收起黑板' : '看黑板', enabled: !!(board && board.current()), click: () => (board.visible ? board.hide() : showBoard()) },
     ...((store.get('tidyLog').moves || []).length ? [{ label: '撤销上次整理', click: undoTidy }] : []),
     { label: '目标跟进…', click: () => openPanel('goals') },
     state.pomodoro ? { label: '停止番茄钟', click: () => stopPomodoro() } : { label: '番茄钟 25 分钟', click: () => startPomodoro(25) },
@@ -2888,6 +2960,7 @@ function setSettings(partial) {
   }
   if (partial.autonomy && !['quiet', 'normal', 'active'].includes(partial.autonomy)) delete partial.autonomy
   if (partial.stockTimes != null) partial.stockTimes = normalizeTimes(partial.stockTimes)
+  if (partial.boardHideSeconds != null) partial.boardHideSeconds = Math.max(0, Math.min(3600, Number(partial.boardHideSeconds) || 0))
   if (partial.stockDropPct != null) partial.stockDropPct = Math.max(3, Math.min(50, Number(partial.stockDropPct) || 10))
   if (partial.stockColors && !['red-up', 'green-up'].includes(partial.stockColors)) delete partial.stockColors
   if (partial.permission && !['read-only', 'workspace-write', 'danger-full-access'].includes(partial.permission)) delete partial.permission
@@ -3096,6 +3169,20 @@ function wireIpc() {
   ipcMain.handle('memory:add', (_e, text) => addMemory(text, { source: 'user', weight: 4 }))
   ipcMain.handle('growth:reflect', () => (agenda.running ? false : agenda.run('reflect')))
   ipcMain.handle('update:check', () => checkUpdateNow().then((i) => (i ? i.version : '')))
+  // blackboard window
+  ipcMain.handle('board:init', () => (board ? board.state() : null))
+  ipcMain.handle('board:copy', () => {
+    const e = board && board.current()
+    if (!e) return false
+    const parts = e.items.map((x) => (x.type === 'text' ? x.text : `--- ${x.file}\n${x.hunks.map((h) => `@@ -${h.oldStart} +${h.newStart} @@\n${h.lines.join('\n')}`).join('\n')}`))
+    clipboard.writeText(parts.join('\n\n'))
+    board.touch()
+    return true
+  })
+  ipcMain.on('board:nav', (_e, delta) => board && board.nav(delta < 0 ? -1 : 1))
+  ipcMain.on('board:close', () => board && board.hide())
+  ipcMain.on('board:pin', (_e, v) => board && board.setPinned(!!v))
+  ipcMain.on('board:active', () => board && board.touch())
   ipcMain.handle('stock:scan', () => !!runStockScan({ manual: true }))
   ipcMain.handle('stock:view', () => (stocks ? stocks.view() : null))
   ipcMain.handle('stock:series', (_e, symbol) => (stocks ? stocks.series(String(symbol)) : null))
@@ -3266,6 +3353,14 @@ if (!app.requestSingleInstanceLock()) {
         broadcast()
       },
     })
+    board = new Blackboard({
+      electron: { BrowserWindow, screen },
+      preload: path.join(__dirname, 'preload.js'),
+      html: path.join(__dirname, '..', 'renderer', 'board.html'),
+      anchor: () => (petWin && !petWin.isDestroyed() ? petWin.getBounds() : null),
+      hideSeconds: () => (S().boardHideSeconds == null ? 120 : S().boardHideSeconds),
+      floating: DESKTOP.floating,
+    })
     wireIpc()
     createPetWindow()
     createTray()
@@ -3301,12 +3396,13 @@ if (!app.requestSingleInstanceLock()) {
         showSign, idleScene, weatherTick, updater: () => updater, updateTick, announceUpdate, checkUpdateNow,
         proactive: () => proactive,
         handleInput, currentBase, heldEmotion, holdEmotion, endHeld,
+        board: () => board, toBoard, showBoard, startRun,
         stocks: () => stocks, runStockScan, analyzeStock, stockTick,
         win: () => petWin,
         panel: () => panelWin,
         bounds: () => petWin.getBounds(),
         capture: async (file, which = 'pet') => {
-          const w = which === 'panel' ? panelWin : which === 'note' ? notes.todo : which === 'memo' ? [...notes.memos][0] : petWin
+          const w = which === 'board' ? board.win : which === 'panel' ? panelWin : which === 'note' ? notes.todo : which === 'memo' ? [...notes.memos][0] : petWin
           const img = await w.webContents.capturePage()
           fs.writeFileSync(file, img.toPNG())
           return img.getSize()
@@ -3324,6 +3420,7 @@ if (!app.requestSingleInstanceLock()) {
     if (state.goalProc) state.goalProc.kill()
     if (state.glanceRun) state.glanceRun.kill()
     if (stocks) stocks.stop()
+    if (board) board.destroy()
     if (state.bgProc) state.bgProc.kill()
     clearInterval(state.perchTimer)
     state.perch = null

@@ -45,6 +45,8 @@ const DEFAULTS = {
     morningBrief: true,
     workspacePulse: true, // read-only look at recently changed projects in the work folder while away
     updateCheck: true, // look for new GitHub releases (never downloads by itself)
+    boardAuto: true, // long replies and changed code go on the blackboard; the bubble keeps the first sentence
+    boardHideSeconds: 120, // put the blackboard away after this long without attention (0 = never)
     stockAuto: true, // US stock watch: scan three times per trading day
     stockTimes: ['10:00', '13:00', '16:15'], // New York time (after the open, midday, after the close)
     stockDefaultPool: true, // ~125 large US companies, plus stockWatch

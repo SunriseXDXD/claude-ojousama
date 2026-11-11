@@ -148,7 +148,7 @@ const tick = () => new Promise((r) => setImmediate(r))
       { type: 'assistant', message: { content: [{ type: 'text', text: '我看看' }] } },
       { type: 'assistant', message: { content: [{ type: 'tool_use', id: 'u1', name: 'Read', input: { file_path: '/a.txt' } }] } },
       { type: 'assistant', parent_tool_use_id: 'u0', message: { content: [{ type: 'text', text: 'subagent chatter' }] } },
-      { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'u1', is_error: true, content: 'denied' }] } },
+      { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'u1', is_error: true, content: 'denied' }] }, tool_use_result: { filePath: '/a.txt', structuredPatch: [] } },
       { type: 'result', subtype: 'success', is_error: false, result: '好啦', session_id: 's1' },
     )
     const res = await t.done
@@ -157,7 +157,7 @@ const tick = () => new Promise((r) => setImmediate(r))
     assert.equal(t.events[0].sessionId, 'claude:s1')
     assert.deepEqual(t.events.filter((e) => e.type === 'text').map((e) => e.text), ['我看', '我看看', '我看看'])
     assert.deepEqual(t.events[6], { type: 'tool_call', tool: 'Read', input: { file_path: '/a.txt' } })
-    assert.deepEqual(t.events[7], { type: 'tool_result', tool: 'Read', status: 'failed' })
+    assert.deepEqual(t.events[7], { type: 'tool_result', tool: 'Read', status: 'failed', result: { filePath: '/a.txt', structuredPatch: [] } }, 'the structured outcome (patches of edits) is passed on')
     child.exit(0)
   }
 

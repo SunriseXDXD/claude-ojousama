@@ -17,6 +17,10 @@ const SEND = [
   'note:resize',
   'note:close',
   'note:pin',
+  'board:nav',
+  'board:close',
+  'board:pin',
+  'board:active',
 ]
 const INVOKE = [
   'pet:init',
@@ -65,8 +69,10 @@ const INVOKE = [
   'stock:view',
   'stock:series',
   'stock:analyze',
+  'board:init',
+  'board:copy',
 ]
-const ON = ['pet:cmd', 'state', 'panel:tab', 'note:state']
+const ON = ['pet:cmd', 'state', 'panel:tab', 'note:state', 'board:state']
 
 contextBridge.exposeInMainWorld('pet', {
   send(channel, data) {

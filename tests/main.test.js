@@ -60,7 +60,8 @@ vm.createContext(context)
 vm.runInContext(source + `
 globalThis.testMain = {
   startRun, snapshot, glance, setSettings, refreshScreenCapabilities, createPetWindow, togglePet,
-  state, controller, currentBase, heldEmotion, holdEmotion, endHeld, reactionFor, runActions,
+  state, controller, currentBase, heldEmotion, holdEmotion, endHeld, reactionFor, runActions, say, toBoard,
+  setBoard(b) { board = b },
   initialize(data, sense) {
     store = { get: k => data[k], set: (k,v) => data[k]=v, patch: (k,p) => data[k]={...data[k],...p} };
     screenSense = sense;
@@ -152,6 +153,33 @@ main.initialize(data, sense)
   assert.equal(main.heldEmotion(), null, 'a proper nap ends it')
   assert.equal(main.currentBase(), 'nap')
   main.controller.setSleeping(false)
+  // Blackboard: long text and changed files go on the board, the bubble keeps the first sentence.
+  const written = [], bubbles = []
+  main.setBoard({ write: (entry, options) => (written.push({ entry, options }), true), settle() {}, current: () => null, visible: false })
+  lastWindow.webContents.send = (_ch, cmd) => cmd && cmd.type === 'say' && bubbles.push(cmd.text)
+  main.say('短短一句。')
+  assert.equal(written.length, 0)
+  assert.equal(bubbles.at(-1), '短短一句。')
+  const long = '改好了。' + '后面是很长的说明'.repeat(30)
+  main.say(long)
+  assert.equal(written.length, 1)
+  assert.equal(written[0].entry.items.map((x) => x.type).join(), 'text')
+  assert.equal(written[0].entry.items[0].text, long, 'the whole text is on the board')
+  assert.ok(bubbles.at(-1).startsWith('改好了。') && bubbles.at(-1).length < 80, 'the bubble keeps the first sentence plus a pointer')
+  const patch = { file: '/work/a.js', created: false, hunks: [{ oldStart: 1, newStart: 1, lines: ['-a', '+b'] }], add: 1, del: 1, cut: 0 }
+  main.say('把 a 改成了 b。', { board: { id: 'turn-1', title: '改一下', diffs: [patch] } })
+  assert.equal(bubbles.at(-1), '把 a 改成了 b。', 'a short answer stays whole in the bubble')
+  assert.equal(written[1].entry.id, 'turn-1')
+  assert.equal(written[1].entry.items.map((x) => x.type).join(), 'diff', 'the changed file is on the board')
+  assert.equal(written[1].entry.items[0].file, '/work/a.js')
+  main.say(long, { board: false })
+  assert.equal(bubbles.at(-1), long)
+  data.settings.boardAuto = false
+  main.say(long)
+  assert.equal(bubbles.at(-1), long, 'turned off in settings: everything stays in the bubble')
+  assert.equal(written.length, 2)
+  data.settings.boardAuto = true
+  main.setBoard(undefined)
   assert.equal(desktopMode('linux',{WAYLAND_DISPLAY:'wayland-0',DISPLAY:':1'}).xwayland,true)
   assert.equal(desktopMode('linux',{WAYLAND_DISPLAY:'wayland-0'}).floating,false)
   assert.equal(desktopMode('linux',{DISPLAY:':0'}).floating,true)
@@ -182,5 +210,5 @@ main.initialize(data, sense)
     setAutoStart({isPackaged:false,setLoginItemSettings:settings=>login.push(settings)},true,'/source',{platform:'darwin',executable:'/Electron'})
     assert.deepEqual(login,[{openAtLogin:true,path:'/Electron',args:['/source']}])
   } finally { fs.rmSync(startupDir,{recursive:true,force:true}) }
-  console.log('PASS main Claude backend, manual-image, capability, held-feeling and desktop-mode integration')
+  console.log('PASS main Claude backend, manual-image, capability, held-feeling, blackboard and desktop-mode integration')
 })().catch(error => { console.error(error); process.exitCode=1 })

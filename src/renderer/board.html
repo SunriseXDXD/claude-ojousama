@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; img-src 'self' file: data:; style-src 'self' file: 'unsafe-inline'; script-src 'self' file:" />
+    <title>Claude Ojousama · 黑板</title>
+    <link rel="stylesheet" href="board.css" />
+  </head>
+  <body>
+    <div id="board" class="board">
+      <header>
+        <b id="title"></b>
+        <span id="count" class="muted"></span>
+        <span class="grow"></span>
+        <button type="button" id="prev" title="上一块" aria-label="上一块">‹</button>
+        <button type="button" id="next" title="下一块" aria-label="下一块">›</button>
+        <button type="button" id="copy" title="复制黑板上的内容">复制</button>
+        <button type="button" id="pin" title="钉住：不自动收起" aria-pressed="false">钉住</button>
+        <button type="button" id="close" title="收起黑板" aria-label="收起黑板">✕</button>
+      </header>
+      <main id="body" tabindex="0"></main>
+      <footer><i class="chalk"></i><i class="chalk pink"></i><span id="hint" class="muted"></span></footer>
+    </div>
+    <script src="board.js"></script>
+  </body>
+</html>
