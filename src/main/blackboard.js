@@ -1,9 +1,11 @@
 'use strict'
+const { T, isZh } = require('./i18n')
 // The blackboard: a window she pulls out beside her for long text and for code she changed
 // (GitHub-style red/green diffs). The speech bubble keeps only the first sentence. It stays hidden
 // while there is nothing to show and puts itself away when nobody looks at it.
 
 const LONG_CHARS = 160
+const LONG_CHARS_EN = 450 // about as much said in English
 const LONG_LINES = 7
 const MAX_DIFF_LINES = 600 // per changed file
 const MAX_ENTRIES = 12
@@ -13,11 +15,11 @@ const MAX_ENTRIES = 12
 /** Long, multi-line or code-carrying text is written on the board instead of the bubble. */
 function needsBoard(text) {
   const t = String(text || '')
-  return /```/.test(t) || t.length > LONG_CHARS || t.split('\n').filter((l) => l.trim()).length > LONG_LINES
+  return /```/.test(t) || t.length > (isZh() ? LONG_CHARS : LONG_CHARS_EN) || t.split('\n').filter((l) => l.trim()).length > LONG_LINES
 }
 
 /** The first sentence or two (plain text, at most `max` characters) for the bubble. Headings are skipped. */
-function briefOf(text, max = 70) {
+function briefOf(text, max = isZh() ? 70 : 160) {
   const lines = String(text || '')
     .replace(/```[\s\S]*?(```|$)/g, '\n')
     .split('\n')
@@ -224,7 +226,7 @@ class Blackboard {
         alwaysOnTop: true,
         hasShadow: false,
         show: false,
-        title: 'Claude Ojousama · 黑板',
+        title: T('Claude Ojousama · 黑板', 'Claude Ojousama · Blackboard'),
         backgroundColor: floating ? '#00000000' : '#23382f',
         webPreferences: { preload: this.o.preload, contextIsolation: true, nodeIntegration: false },
       })

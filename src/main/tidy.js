@@ -4,15 +4,16 @@
 const fs = require('fs')
 const fsp = fs.promises
 const path = require('path')
+const { T } = require('./i18n')
 
 const CATEGORIES = [
-  ['图片', 'jpg jpeg png gif webp bmp svg heic heif ico tif tiff avif psd'],
-  ['文档', 'pdf doc docx xls xlsx ppt pptx txt md csv rtf odt ods odp epub pages key numbers'],
-  ['压缩包', 'zip rar 7z tar gz bz2 xz tgz zst'],
-  ['安装包', 'exe msi msix msixbundle appx dmg pkg apk iso'],
-  ['视频', 'mp4 mkv mov avi wmv flv webm m4v'],
-  ['音乐', 'mp3 wav flac aac ogg m4a wma opus'],
-  ['代码', 'js ts jsx tsx py java c cpp h hpp cs go rs json yml yaml xml html css ipynb sql sh ps1 bat'],
+  [T('图片', 'Images'), 'jpg jpeg png gif webp bmp svg heic heif ico tif tiff avif psd'],
+  [T('文档', 'Documents'), 'pdf doc docx xls xlsx ppt pptx txt md csv rtf odt ods odp epub pages key numbers'],
+  [T('压缩包', 'Archives'), 'zip rar 7z tar gz bz2 xz tgz zst'],
+  [T('安装包', 'Installers'), 'exe msi msix msixbundle appx dmg pkg apk iso'],
+  [T('视频', 'Videos'), 'mp4 mkv mov avi wmv flv webm m4v'],
+  [T('音乐', 'Music'), 'mp3 wav flac aac ogg m4a wma opus'],
+  [T('代码', 'Code'), 'js ts jsx tsx py java c cpp h hpp cs go rs json yml yaml xml html css ipynb sql sh ps1 bat'],
 ].map(([name, exts]) => [name, new Set(exts.split(' '))])
 
 // Partial downloads, Office lock files and shell metadata are never touched.
@@ -124,7 +125,7 @@ async function moveFile(from, to, createdDirs) {
     await fsp.mkdir(dir, { recursive: true })
     if (createdDirs && !createdDirs.includes(dir)) createdDirs.push(dir)
   }
-  if (fs.existsSync(to)) throw new Error(`目标已存在：${path.basename(to)}`)
+  if (fs.existsSync(to)) throw new Error(T(`目标已存在：${path.basename(to)}`, `Already exists: ${path.basename(to)}`))
   try {
     await fsp.rename(from, to)
   } catch (e) {
@@ -140,7 +141,7 @@ function summarize(moves) {
   for (const m of moves) count[m.cat] = (count[m.cat] || 0) + 1
   return Object.entries(count)
     .map(([k, v]) => `${k} ${v}`)
-    .join('、')
+    .join(T('、', ', '))
 }
 
 module.exports = { categoryOf, listFiles, scanNew, markSeen, planMoves, moveFile, summarize, STABLE_MS }

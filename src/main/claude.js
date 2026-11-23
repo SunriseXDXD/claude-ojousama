@@ -6,6 +6,7 @@ const { EventEmitter } = require('events')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
+const { T } = require('./i18n')
 
 const TOOL_MODES = ['full', 'look', 'scan', 'none']
 const PERMISSIONS = ['read-only', 'workspace-write', 'danger-full-access']
@@ -20,7 +21,7 @@ const SCAN_TOOLS = ['Read', 'Glob', 'Grep']
 // bubblewrap missing) a command would need approval, and with nobody to approve it is refused.
 const SANDBOX = { enabled: true, autoAllowBashIfSandboxed: true, allowUnsandboxedCommands: false }
 const IMAGE_TYPES = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp' }
-const RESULT_ERRORS = { error_max_turns: '超过了最大轮数', error_max_budget_usd: '超过了花费上限', error_during_execution: '执行时出错' }
+const RESULT_ERRORS = { error_max_turns: T('超过了最大轮数', 'hit the maximum number of turns'), error_max_budget_usd: T('超过了花费上限', 'hit the spending limit'), error_during_execution: T('执行时出错', 'failed while running') }
 
 // Stored session ids carry a prefix, so ids left over from the old Codex / DSH backends are never resumed.
 const PREFIX = 'claude:'
@@ -144,7 +145,7 @@ function userMessage(prompt, images = []) {
   const content = []
   for (const file of images) {
     const type = IMAGE_TYPES[path.extname(file).toLowerCase()]
-    if (!type) throw new Error('不支持的图片格式：' + path.basename(file))
+    if (!type) throw new Error(T('不支持的图片格式：', 'Unsupported image format: ') + path.basename(file))
     content.push({ type: 'image', source: { type: 'base64', media_type: type, data: fs.readFileSync(file).toString('base64') } })
   }
   content.push({ type: 'text', text: prompt || '' })
@@ -202,9 +203,9 @@ class ClaudeRun extends EventEmitter {
     if (!TOOL_MODES.includes(o.tools)) throw new Error('Unknown tool mode: ' + o.tools)
     if (!PERMISSIONS.includes(o.permission)) throw new Error('Unknown permission mode: ' + o.permission)
     const claude = typeof o.claude === 'string' ? { exe: o.claude, args: [] } : o.claude
-    if (!claude || !claude.exe) throw new Error('找不到 Claude Code，请先安装并在终端运行 claude 登录')
+    if (!claude || !claude.exe) throw new Error(T('找不到 Claude Code，请先安装并在终端运行 claude 登录', "Can't find Claude Code; install it and run claude in a terminal to log in"))
     const cwd = o.cwd || os.homedir()
-    if (!fs.existsSync(cwd)) throw new Error('工作目录不存在：' + cwd)
+    if (!fs.existsSync(cwd)) throw new Error(T('工作目录不存在：', "The work folder doesn't exist: ") + cwd)
     const auth = o.tools === 'full' ? { env: {}, settings: {} } : userAuth()
     const input = userMessage(o.prompt, o.images || [])
     const args = [...(claude.args || []), ...buildArgs(o, auth.settings)]
@@ -225,11 +226,11 @@ class ClaudeRun extends EventEmitter {
       this.stderr = (this.stderr + text).slice(-8192)
       this.emit('stderr', text)
     })
-    this.child.on('error', (e) => this._finish(false, e.code === 'ENOENT' ? `找不到 Claude Code：${claude.exe}` : e.message, -1))
+    this.child.on('error', (e) => this._finish(false, e.code === 'ENOENT' ? T(`找不到 Claude Code：${claude.exe}`, `Can't find Claude Code: ${claude.exe}`) : e.message, -1))
     this.child.on('close', (code) => {
       clearTimeout(this.exitTimer)
       if (buffer.trim() && !this.done) this._line(buffer.trim())
-      this._finish(false, this.killed ? '已取消' : tail(this.stderr) || `Claude Code 在回答前退出了（退出码 ${code}）`, code)
+      this._finish(false, this.killed ? T('已取消', 'Cancelled') : tail(this.stderr) || T(`Claude Code 在回答前退出了（退出码 ${code}）`, `Claude Code exited before answering (exit code ${code})`), code)
     })
     this.child.stdin.on('error', () => {})
     // One message per process: with stdin closed the CLI exits once the turn is done.
@@ -287,8 +288,8 @@ class ClaudeRun extends EventEmitter {
     if (e.session_id) this.sessionId = e.session_id
     const ok = e.subtype === 'success' && !e.is_error
     if (typeof e.result === 'string' && e.result && ok) this.final = e.result
-    const errors = Array.isArray(e.errors) ? e.errors.filter(Boolean).join('；') : ''
-    const error = ok ? null : errors || (typeof e.result === 'string' && e.result) || RESULT_ERRORS[e.subtype] || e.subtype || 'Claude Code 出错了'
+    const errors = Array.isArray(e.errors) ? e.errors.filter(Boolean).join(T('；', '; ')) : ''
+    const error = ok ? null : errors || (typeof e.result === 'string' && e.result) || RESULT_ERRORS[e.subtype] || e.subtype || T('Claude Code 出错了', 'Claude Code ran into an error')
     this._finish(ok, error, ok ? 0 : 1)
     // The CLI exits by itself after its result; make sure it does.
     if (this.child && this.child.exitCode === null) {
@@ -304,7 +305,7 @@ class ClaudeRun extends EventEmitter {
   kill() {
     if (this.done || this.killed) return
     this.killed = true
-    if (!this.child) return this._finish(false, '已取消', -1)
+    if (!this.child) return this._finish(false, T('已取消', 'Cancelled'), -1)
     try {
       this.child.kill()
     } catch {}
@@ -313,7 +314,7 @@ class ClaudeRun extends EventEmitter {
       try {
         this.child.kill('SIGKILL')
       } catch {}
-      this._finish(false, '已取消', -1)
+      this._finish(false, T('已取消', 'Cancelled'), -1)
     }, 2000)
     if (this.killTimer.unref) this.killTimer.unref()
   }
@@ -323,7 +324,7 @@ class ClaudeRun extends EventEmitter {
     this.done = true
     clearTimeout(this.killTimer)
     ok = !!ok && !this.killed
-    this.emit('done', { ok, final: this.final || this.lastText, sessionId: tagSession(this.sessionId), error: this.killed ? '已取消' : ok ? null : error || 'Claude Code 出错了', code })
+    this.emit('done', { ok, final: this.final || this.lastText, sessionId: tagSession(this.sessionId), error: this.killed ? T('已取消', 'Cancelled') : ok ? null : error || T('Claude Code 出错了', 'Claude Code ran into an error'), code })
   }
 }
 

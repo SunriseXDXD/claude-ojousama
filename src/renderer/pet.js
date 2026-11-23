@@ -246,7 +246,8 @@ function draw(now) {
     else if (carryItem.kind === 'memo') drawNoteIcon(ctx, ix, iy, size, '#ffd6e7')
     else if (carryItem.kind === 'box') drawBoxIcon(ctx, ix, iy, size)
     else drawFileIcon(ctx, ix, iy, size)
-    const label = carryItem.label.length > 10 ? carryItem.label.slice(0, 9) + '…' : carryItem.label
+    const room = /[\u4e00-\u9fff]/.test(carryItem.label) ? 10 : 16 // Latin letters are narrower
+    const label = carryItem.label.length > room ? carryItem.label.slice(0, room - 1) + '…' : carryItem.label
     ctx.font = '11px "Microsoft YaHei UI", sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'top'
@@ -445,12 +446,33 @@ canvas.addEventListener('pointermove', (e) => {
     canvas.style.cursor = isOpaqueAt(e.clientX, e.clientY) ? 'grab' : 'default'
     return
   }
-  if (!press.dragging && Math.hypot(e.screenX - press.x, e.screenY - press.y) > 4) {
+  if (press.dragging) {
+    // No button down any more: it was released where this window could not see (another app took the
+    // mouse-up). Without this she would keep following the cursor.
+    if (!(e.buttons & 1)) return endPress()
+    // Tell the main process the mouse is still ours (it lets go of her if these stop while the cursor moves).
+    const now = performance.now()
+    if (now - lastAlive > 100) {
+      lastAlive = now
+      pet.send('pet:drag-alive', e.buttons)
+    }
+    return
+  }
+  if (!(e.buttons & 1)) return endPress() // pressed, then released outside the window: not a click
+  if (Math.hypot(e.screenX - press.x, e.screenY - press.y) > 4) {
     press.dragging = true
     canvas.style.cursor = 'grabbing'
     pet.send('pet:drag-start')
   }
 })
+let lastAlive = 0
+/** Forget the press; a drag in progress ends (the main process ignores a drag-end it already handled). */
+function endPress() {
+  const wasDragging = press && press.dragging
+  press = null
+  canvas.style.cursor = 'grab'
+  if (wasDragging) pet.send('pet:drag-end')
+}
 canvas.addEventListener('pointerup', (e) => {
   if (!press) return
   const wasDragging = press.dragging
@@ -467,10 +489,11 @@ canvas.addEventListener('pointerup', (e) => {
     clicks = 0
   }, 260)
 })
-canvas.addEventListener('pointercancel', () => {
-  if (press && press.dragging) pet.send('pet:drag-end')
-  press = null
-})
+canvas.addEventListener('pointercancel', endPress)
+// Losing the pointer capture or the window's focus mid-drag (switching apps) also lets go of her.
+canvas.addEventListener('lostpointercapture', () => press && press.dragging && endPress())
+window.addEventListener('blur', () => press && press.dragging && endPress())
+document.addEventListener('visibilitychange', () => document.hidden && press && press.dragging && endPress())
 canvas.addEventListener('contextmenu', (e) => {
   e.preventDefault()
   if (isOpaqueAt(e.clientX, e.clientY)) pet.send('pet:context-menu')
@@ -553,6 +576,10 @@ pet.on('pet:cmd', async (cmd) => {
     case 'input':
       if (cmd.open) openInput(cmd.prefill)
       else closeInput()
+      break
+    case 'drag-cancel': // the main process let go of her (the mouse-up never reached this window)
+      press = null
+      canvas.style.cursor = 'grab'
       break
   }
 })

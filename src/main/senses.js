@@ -1,5 +1,6 @@
 'use strict'
 // Pure classifiers used by the autonomy loop (no Electron here, easy to unit-test).
+const { isZh } = require('./i18n')
 
 const DEFAULT_BLOCK = ['1Password', 'KeePass', 'KeePassXC', 'Bitwarden', 'LastPass', 'Dashlane', 'WeChat', 'Weixin', 'QQ', 'TIM', 'Telegram', 'WhatsApp', 'Signal', '密码', 'password', '银行', 'bank', '支付', 'alipay', 'paypal', '充值', '余额', '账单', '钱包', 'billing', 'invoice', 'wallet', 'InPrivate', '无痕', 'Incognito', '隐私浏览']
 const DEFAULT_DISTRACT = ['bilibili', '哔哩哔哩', '微博', 'weibo', '抖音', 'douyin', '快手', '小红书', 'youtube', 'twitter', 'x.com', 'reddit', 'netflix', '爱奇艺', '优酷', '腾讯视频', '虎牙', '斗鱼', 'twitch', 'steam', '淘宝', '京东']
@@ -93,12 +94,15 @@ const SECRET_HINT = /(password|passwd|pwd|token|secret|api[_-]?key|sk-[a-z0-9]|b
 
 /**
  * What kind of text was copied: 'error' | 'code' | 'english' | null (ignore).
+ * 'english' means text in the other language, worth translating: English for a Chinese user, Chinese for an English one.
  * Secrets, one-time codes, URLs and short snippets are ignored.
  */
 function classifyClip(text) {
   const t = String(text || '').trim()
   if (t.length < 24 || t.length > 8000) return null
   if (SECRET_HINT.test(t)) return null
+  const cjk = (t.match(/[\u4e00-\u9fff]/g) || []).length / t.length
+  if (!isZh() && cjk > 0.3 && !findError(t)) return 'english' // Chinese needs no spaces between words
   if (!/\s/.test(t)) return null // tokens, keys, single words, bare URLs
   if (/^https?:\/\/\S+$/.test(t)) return null
   // Wallet recovery phrases: 12-24 plain lowercase words and nothing else.
@@ -111,7 +115,7 @@ function classifyClip(text) {
   if (lines.length >= 2 && (symbols / t.length > 0.04 || indented >= 2)) return 'code'
   const ascii = t.replace(/[^\x20-\x7e]/g, '').length / t.length
   const words = t.split(/\s+/).filter((w) => /[a-z]{2,}/i.test(w)).length
-  if (ascii > 0.9 && words >= 8) return 'english'
+  if (isZh() && ascii > 0.9 && words >= 8) return 'english'
   return null
 }
 

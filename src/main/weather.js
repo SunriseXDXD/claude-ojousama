@@ -8,18 +8,19 @@ const THUNDER = new Set([200, 386, 389])
 const SNOW = new Set([179, 227, 230, 323, 326, 329, 332, 335, 338, 368, 371, 392, 395])
 const SLEET = new Set([182, 185, 317, 320, 350, 362, 365, 374, 377])
 const FOG = new Set([143, 248, 260])
+const { T } = require('./i18n')
 
 function describe(code) {
-  if (THUNDER.has(code)) return '雷阵雨'
-  if (HEAVY.has(code)) return '大雨'
-  if (RAIN.has(code)) return '小雨'
-  if (SNOW.has(code)) return '下雪'
-  if (SLEET.has(code)) return '雨夹雪'
-  if (FOG.has(code)) return '有雾'
-  if (code === 113) return '晴'
-  if (code === 116) return '多云'
-  if (code === 119 || code === 122) return '阴'
-  return '天气一般'
+  if (THUNDER.has(code)) return T('雷阵雨', 'thunderstorms')
+  if (HEAVY.has(code)) return T('大雨', 'heavy rain')
+  if (RAIN.has(code)) return T('小雨', 'light rain')
+  if (SNOW.has(code)) return T('下雪', 'snow')
+  if (SLEET.has(code)) return T('雨夹雪', 'sleet')
+  if (FOG.has(code)) return T('有雾', 'fog')
+  if (code === 113) return T('晴', 'sunny')
+  if (code === 116) return T('多云', 'partly cloudy')
+  if (code === 119 || code === 122) return T('阴', 'overcast')
+  return T('天气一般', 'so-so weather')
 }
 
 class Weather {
@@ -91,7 +92,7 @@ class Weather {
   line() {
     const d = this.current
     if (!d) return ''
-    return `${d.city} ${d.desc} ${d.temp}°C（${d.min}~${d.max}°C，之后降雨概率 ${d.rainChance}%）`
+    return T(`${d.city} ${d.desc} ${d.temp}°C（${d.min}~${d.max}°C，之后降雨概率 ${d.rainChance}%）`, `${d.city}: ${d.desc}, ${d.temp}°C (${d.min}–${d.max}°C, ${d.rainChance}% chance of rain later)`)
   }
 }
 

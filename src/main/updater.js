@@ -2,6 +2,8 @@
 // Checks GitHub Releases for a newer version. Never downloads or installs anything by itself:
 // the pet tells the user and opens the download (or the release page) when asked.
 
+const { T } = require('./i18n')
+
 const REPO = 'Silasvanceneo/claude-ojousama'
 const API = `https://api.github.com/repos/${REPO}/releases/latest`
 const HOUR = 3600e3
@@ -50,7 +52,7 @@ function summarize(body, max = 120) {
     .split(/\r?\n/)
     .map((l) => l.replace(/^#+\s*|^[-*]\s*|[*_`]/g, '').trim())
     .filter((l) => l && !/^(!\[|<)/.test(l))
-  const text = lines.slice(0, 4).join('；')
+  const text = lines.slice(0, 4).join(T('；', '; '))
   return text.length > max ? text.slice(0, max) + '…' : text
 }
 

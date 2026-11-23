@@ -48,7 +48,7 @@ function load({ platform = 'linux', env = { DISPLAY: ':1' }, responses = {}, sou
   const module = { exports: {} }
   vm.runInNewContext(source, {
     module, exports: module.exports, __dirname: path.dirname(file),
-    require: (name) => name === 'electron' ? electron : name === 'child_process' ? { spawn } : name === 'fs' ? { ...fs, readdirSync: () => [], existsSync: () => true } : require(name),
+    require: (name) => name === 'electron' ? electron : name === 'child_process' ? { spawn } : name === 'fs' ? { ...fs, readdirSync: () => [], existsSync: () => true } : require(name.startsWith('./') ? path.join(path.dirname(file), name) : name),
     process: { platform, arch: 'arm64', env, pid: 99 },
     console: { warn() {} }, setTimeout, clearTimeout,
   }, { filename: file })

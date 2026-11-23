@@ -2,6 +2,7 @@
 // Local, free "mischief" routines. Each receives the pet controller from main.js.
 const { screen } = require('electron')
 const { LINES, FAKE_FILES, pick } = require('./persona')
+const { T } = require('./i18n')
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -16,7 +17,7 @@ async function peek(pet) {
   pet.place(wa.x + wa.width - w, y)
   pet.hold('peek')
   await pet.fade(1)
-  pet.say('（盯——）', { ttl: 0, sticky: true })
+  pet.say(T('（盯——）', '(stare——)'), { ttl: 0, sticky: true })
   const seen = await Promise.race([looking, sleep(45000).then(() => null)])
   const line = (seen && seen.text) || pick(LINES.prankPeek)
   await pet.say(line, { ttl: Math.min(9000, 3200 + line.length * 120) })
@@ -35,7 +36,7 @@ async function fakeBug(pet) {
 }
 
 async function dragJunk(pet) {
-  await pet.fileTrip({ icon: null, label: pick(FAKE_FILES) }, null, pick(LINES.prankDrag))
+  await pet.fileTrip({ icon: null, label: pick(FAKE_FILES.list) }, null, pick(LINES.prankDrag))
 }
 
 async function chase(pet) {
@@ -81,7 +82,7 @@ async function hide(pet) {
   await pet.motion.walkTo(home.x, 110)
   pet.release()
   pet.once('surprise', 1)
-  pet.say('找到本小姐了？……哼，算你厉害。', { ttl: 2500 })
+  pet.say(T('找到本小姐了？……哼，算你厉害。', 'You found me? …Hmph, not bad.'), { ttl: 2500 })
 }
 
 async function dance(pet) {
@@ -107,7 +108,7 @@ const POSITIONED = new Set(['peek', 'dragJunk', 'chase', 'hide'])
 
 async function runRandom(pet, name) {
   if (name && POSITIONED.has(name) && pet.canPositionWindows === false) {
-    await pet.say('当前桌面由系统管理窗口位置，不能追鼠标或移动桌宠；可以跳舞、敲屏幕和贴便签。', { ttl: 5000 })
+    await pet.say(T('当前桌面由系统管理窗口位置，不能追鼠标或移动桌宠；可以跳舞、敲屏幕和贴便签。', 'On this desktop the system manages window positions, so I can\'t chase the cursor or move around; I can still dance, knock on the screen and leave notes.'), { ttl: 5000 })
     return null
   }
   const keys = Object.keys(ALL).filter((k) => (pet.canPositionWindows !== false || !POSITIONED.has(k)) && (!LOCKED[k] || (pet.hasUnlock && pet.hasUnlock(LOCKED[k]))))

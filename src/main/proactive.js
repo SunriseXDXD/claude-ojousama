@@ -6,6 +6,7 @@
 //   mischief, LLM remarks and wandering.
 // The tick never waits for the user: bubbles resolve in the background.
 const { LINES, pick, fmtTime } = require('./persona')
+const { T } = require('./i18n')
 
 const MIN = 60000
 const NAG_MAX = 3 // an ignored alert is shown at most this many times
@@ -32,19 +33,19 @@ function inQuietHours(settings, d = new Date()) {
 const PRANK_MEAN = { 1: 55, 2: 28, 3: 11 }
 
 const ALERT_ICON = { reminder: '⏰', 'todo-soon': '📌', 'todo-overdue': '⚠️', 'goal-ask': '🎯' }
-const ALERT_TITLE = { reminder: 'Claude 大小姐提醒你', 'todo-soon': '待办快到时间了', 'todo-overdue': '待办过期了', 'goal-ask': '需要你拍板' }
+const ALERT_TITLE = { reminder: T('Claude 大小姐提醒你', 'Claude Ojousama reminds you'), 'todo-soon': T('待办快到时间了', 'A to-do is almost due'), 'todo-overdue': T('待办过期了', 'A to-do is overdue'), 'goal-ask': T('需要你拍板', 'Your call needed') }
 const ALERT_BUTTONS = {
   reminder: [
-    { id: 'ok', label: '知道啦' },
-    { id: 'snooze', label: '10 分钟后' },
+    { id: 'ok', label: T('知道啦', 'Got it') },
+    { id: 'snooze', label: T('10 分钟后', 'In 10 min') },
   ],
   'todo-soon': [
-    { id: 'done', label: '已经完成' },
-    { id: 'ok', label: '马上做' },
+    { id: 'done', label: T('已经完成', 'Already done') },
+    { id: 'ok', label: T('马上做', 'On it') },
   ],
   'todo-overdue': [
-    { id: 'done', label: '完成了' },
-    { id: 'later', label: '推迟 1 小时' },
+    { id: 'done', label: T('完成了', 'Done') },
+    { id: 'later', label: T('推迟 1 小时', 'Push back 1 hour') },
   ],
 }
 
@@ -132,7 +133,7 @@ class Proactive {
       if (s.proactive && gone > 10 * MIN && !inQuietHours(s) && pet.canInterrupt()) {
         pet.once('surprise', 1)
         const soon = pet.store.get('todos').filter((t) => !t.done && t.due && t.due - now < 3 * 60 * MIN)
-        pet.say(pick(LINES.welcome) + (soon.length ? `\n「${soon[0].text}」（${fmtTime(soon[0].due)}）快到了，别忘了。` : ''), { ttl: 7000 })
+        pet.say(pick(LINES.welcome) + (soon.length ? T(`\n「${soon[0].text}」（${fmtTime(soon[0].due)}）快到了，别忘了。`, `\n"${soon[0].text}" (${fmtTime(soon[0].due)}) is coming up. Don't forget.`) : ''), { ttl: 7000 })
         return
       }
     }
@@ -154,14 +155,14 @@ class Proactive {
     const today = dayKey()
     if (petState.lastGreetDay !== today && new Date().getHours() >= 5 && !quiet) {
       pet.store.patch('pet', { lastGreetDay: today })
-      pet.gainXp(5, '新的一天')
+      pet.gainXp(5, T('新的一天', 'a new day'))
       const open = pet.store.get('todos').filter((t) => !t.done)
       pet.once('wave', 2)
       const weather = pet.weatherLine()
-      const list = (open.length ? `\n还没做完的：${open.slice(0, 3).map((t) => `「${t.text}」`).join('、')}` : '') + (weather ? `\n今天：${weather}` : '')
-      const buttons = [{ id: 'plan', label: '帮我规划今天' }]
-      if (open.length) buttons.push({ id: 'note', label: '贴成便签' })
-      buttons.push({ id: 'later', label: '等会儿' })
+      const list = (open.length ? T(`\n还没做完的：${open.slice(0, 3).map((t) => `「${t.text}」`).join('、')}`, `\nStill open: ${open.slice(0, 3).map((t) => `"${t.text}"`).join(', ')}`) : '') + (weather ? T(`\n今天：${weather}`, `\nToday: ${weather}`) : '')
+      const buttons = [{ id: 'plan', label: T('帮我规划今天', 'Plan my day') }]
+      if (open.length) buttons.push({ id: 'note', label: T('贴成便签', 'Make a sticky note') })
+      buttons.push({ id: 'later', label: T('等会儿', 'Later') })
       pet.say(pick(LINES.morning) + list, { ttl: 20000, buttons }).then((choice) => {
         if (choice === 'plan') pet.planToday()
         if (choice === 'note') pet.postTodoNote()
@@ -175,7 +176,7 @@ class Proactive {
       if (petState.lastNightNag !== night) {
         pet.store.patch('pet', { lastNightNag: night })
         pet.once('sleep', 2)
-        pet.say(`已经 ${fmtTime(now, false)} 了。` + pick(LINES.night), { ttl: 8000 })
+        pet.say(T(`已经 ${fmtTime(now, false)} 了。`, `It's already ${fmtTime(now, false)}. `) + pick(LINES.night), { ttl: 8000 })
       }
       return
     }
@@ -197,14 +198,14 @@ class Proactive {
       const open = pet.store.get('todos').filter((t) => !t.done)
       if (open.length >= 2) {
         pet.store.patch('pet', { lastNoteDay: todayStr })
-        if (noteRule === 'auto') pet.postTodoNote({ line: `今天有 ${open.length} 件事要做。本小姐写成便签给你贴出来。` })
+        if (noteRule === 'auto') pet.postTodoNote({ line: T(`今天有 ${open.length} 件事要做。本小姐写成便签给你贴出来。`, `${open.length} things to do today. I'll write them on a sticky note for you.`) })
         else
           pet
-            .say(`今天有 ${open.length} 件待办。要本小姐写成便签贴到桌面上吗？`, {
+            .say(T(`今天有 ${open.length} 件待办。要本小姐写成便签贴到桌面上吗？`, `${open.length} to-dos today. Shall I write them on a sticky note for your desktop?`), {
               ttl: 20000,
               buttons: [
-                { id: 'yes', label: '贴吧' },
-                { id: 'no', label: '不用' },
+                { id: 'yes', label: T('贴吧', 'Stick it up') },
+                { id: 'no', label: T('不用', 'No thanks') },
               ],
             })
             .then((c) => c === 'yes' && pet.postTodoNote())
@@ -327,10 +328,10 @@ class Proactive {
       await pet.motion.shake(450, 6)
       await sleep(200)
       await pet.motion.shake(450, 6)
-      pet.notify('本小姐还在等你回应', String(a.text).replace(/^[^\n]*\n❓/, '❓'))
+      pet.notify(T('本小姐还在等你回应', 'Still waiting for your answer'), String(a.text).replace(/^[^\n]*\n❓/, '❓'))
     }
     pet.once(count === 1 || !urgent ? 'wave' : 'sulk', 2)
-    const buttons = a.buttons || ALERT_BUTTONS[a.kind] || [{ id: 'ok', label: '知道啦' }]
+    const buttons = a.buttons || ALERT_BUTTONS[a.kind] || [{ id: 'ok', label: T('知道啦', 'Got it') }]
     const choice = await pet.say(text, { ttl: 45000, buttons })
     this.showing = null
     if (choice === pet.REPLACED) {
@@ -350,12 +351,12 @@ class Proactive {
       if (a.kind === 'todo-overdue') {
         this.removeAlert(a.id)
         this.applyChoice(a, choice)
-        pet.logActivity('remind', `${clip(a.text, 40)} → 推迟 1 小时`)
+        pet.logActivity('remind', T(`${clip(a.text, 40)} → 推迟 1 小时`, `${clip(a.text, 40)} → pushed back 1 hour`))
       } else {
         // Deferred on purpose: calm re-asks that back off (1 h, 3 h, then daily).
         const later = (a.later || 0) + 1
         this.patchAlert(a.id, { count: 0, later, nextAt: Date.now() + LATER_MIN[Math.min(later, LATER_MIN.length) - 1] * MIN })
-        pet.logActivity('nag', `「${clip(a.text, 40)}」稍后再问`)
+        pet.logActivity('nag', T(`「${clip(a.text, 40)}」稍后再问`, `"${clip(a.text, 40)}" — will ask again later`))
       }
       return
     }
@@ -365,17 +366,17 @@ class Proactive {
       if (count < NAG_MAX) this.patchAlert(a.id, { nextAt: Date.now() + Math.max(30, nag) * MIN })
       else {
         this.removeAlert(a.id)
-        pet.logActivity('ask', `「${clip(a.text, 40)}」先放在面板的「目标」里等你回答`)
+        pet.logActivity('ask', T(`「${clip(a.text, 40)}」先放在面板的「目标」里等你回答`, `"${clip(a.text, 40)}" is waiting for your answer on the panel's Goals tab`))
       }
       return
     }
     if (nag > 0 && count < NAG_MAX) {
       this.patchAlert(a.id, { nextAt: Date.now() + nag * MIN })
-      pet.logActivity('nag', `「${clip(a.text, 40)}」没回应，${nag} 分钟后再来提醒（第 ${count} 次）`)
+      pet.logActivity('nag', T(`「${clip(a.text, 40)}」没回应，${nag} 分钟后再来提醒（第 ${count} 次）`, `"${clip(a.text, 40)}" got no answer; reminding again in ${nag} min (#${count})`))
     } else {
       this.removeAlert(a.id)
-      pet.logActivity('nag', `「${clip(a.text, 40)}」提醒了 ${count} 次都没回应，先放下了`)
-      pet.changeMood(-1, '提醒了三次都没人理')
+      pet.logActivity('nag', T(`「${clip(a.text, 40)}」提醒了 ${count} 次都没回应，先放下了`, `"${clip(a.text, 40)}" got no answer after ${count} reminders; letting it go for now`))
+      pet.changeMood(-1, T('提醒了三次都没人理', 'ignored after three reminders'))
       pet.once('cry', 2)
     }
   }
@@ -410,17 +411,17 @@ class Proactive {
     if (!total || (total === 1 && gone < 10 * MIN)) return false // a single item is shown normally
     const lines = [
       ...pending.map((a) => `${ALERT_ICON[a.kind] || '🔔'} ${clip(String(a.text).split('\n').pop().replace(/^❓\s*/, ''), 26)}`),
-      ...reports.map((g) => `🎯「${clip(g.title, 14)}」有新进展`),
-      ...(inbox ? [`💡 你不在的时候，本小姐准备了 ${inbox} 件事，等下再说`] : []),
+      ...reports.map((g) => T(`🎯「${clip(g.title, 14)}」有新进展`, `🎯 "${clip(g.title, 14)}" has news`)),
+      ...(inbox ? [T(`💡 你不在的时候，本小姐准备了 ${inbox} 件事，等下再说`, `💡 I prepared ${inbox} thing(s) while you were away; more on that later`)] : []),
     ]
     this.showing = 'catchup'
     pet.once('wave', 2)
     pet
-      .say(`回来了？你不在的时候：\n${lines.slice(0, 5).join('\n')}${lines.length > 5 ? `\n…还有 ${lines.length - 5} 条` : ''}`, {
+      .say(T(`回来了？你不在的时候：\n${lines.slice(0, 5).join('\n')}${lines.length > 5 ? `\n…还有 ${lines.length - 5} 条` : ''}`, `You're back? While you were away:\n${lines.slice(0, 5).join('\n')}${lines.length > 5 ? `\n…and ${lines.length - 5} more` : ''}`), {
         ttl: 40000,
         buttons: [
-          { id: 'one', label: '一条条看' },
-          { id: 'ack', label: '都知道了' },
+          { id: 'one', label: T('一条条看', 'One by one') },
+          { id: 'ack', label: T('都知道了', 'Got it all') },
         ],
       })
       .then((c) => {
@@ -430,13 +431,13 @@ class Proactive {
           const ids = new Set(pending.filter((a) => a.kind !== 'goal-ask').map((a) => a.id))
           pet.store.set('alerts', pet.store.get('alerts').filter((a) => !ids.has(a.id)))
           for (const g of reports) pet.markGoalRead(g.id)
-          pet.logActivity('catchup', `回来后一次确认了 ${ids.size} 条提醒`)
+          pet.logActivity('catchup', T(`回来后一次确认了 ${ids.size} 条提醒`, `Acknowledged ${ids.size} reminder(s) at once on return`))
         } else if (c === 'one') {
           for (const a of pending) this.patchAlert(a.id, { nextAt: now })
           setTimeout(() => this.deliverAlerts(Date.now()), 400)
         }
       })
-    pet.logActivity('catchup', `你离开了 ${Math.round(gone / MIN)} 分钟，回来后汇报了 ${total} 件事`)
+    pet.logActivity('catchup', T(`你离开了 ${Math.round(gone / MIN)} 分钟，回来后汇报了 ${total} 件事`, `You were away ${Math.round(gone / MIN)} min; reported ${total} thing(s) on return`))
     return true
   }
 
@@ -449,7 +450,7 @@ class Proactive {
         while (next <= now) next += 24 * 60 * MIN
         pet.updateReminder(r.id, { at: next })
       } else pet.updateReminder(r.id, { fired: true })
-      const late = now - r.at > 5 * MIN ? `（原定 ${fmtTime(r.at, false)}）` : ''
+      const late = now - r.at > 5 * MIN ? T(`（原定 ${fmtTime(r.at, false)}）`, ` (was due ${fmtTime(r.at, false)})`) : ''
       this.raise({ kind: 'reminder', refId: r.id, text: r.text + late })
     }
   }
@@ -460,10 +461,10 @@ class Proactive {
       if (t.done || !t.due) continue
       if (!t.warned && t.due - now <= 10 * MIN && t.due > now) {
         pet.updateTodo(t.id, { warned: true })
-        this.raise({ kind: 'todo-soon', refId: t.id, text: `「${t.text}」快到截止时间了（${fmtTime(t.due, false)}）。还不动手？` })
+        this.raise({ kind: 'todo-soon', refId: t.id, text: T(`「${t.text}」快到截止时间了（${fmtTime(t.due, false)}）。还不动手？`, `"${t.text}" is almost due (${fmtTime(t.due, false)}). Not starting yet?`) })
       } else if (!t.overdue && now > t.due) {
         pet.updateTodo(t.id, { overdue: true, warned: true })
-        this.raise({ kind: 'todo-overdue', refId: t.id, text: `「${t.text}」已经过了截止时间（${fmtTime(t.due, false)}）。……要改个时间，还是标记完成？` })
+        this.raise({ kind: 'todo-overdue', refId: t.id, text: T(`「${t.text}」已经过了截止时间（${fmtTime(t.due, false)}）。……要改个时间，还是标记完成？`, `"${t.text}" is past due (${fmtTime(t.due, false)}). …Reschedule it, or mark it done?`) })
       }
     }
   }

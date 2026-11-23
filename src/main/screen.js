@@ -6,6 +6,17 @@ const { desktopCapturer, screen, systemPreferences } = require('electron')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
+const { T, isZh } = require('./i18n')
+
+/** The native helpers report a few fixed Chinese messages; show them in English when needed. */
+const HELPER_EN = {
+  '没有可用的 macOS 图形会话': 'No macOS graphical session available',
+  '请在系统设置中允许桌宠录制屏幕；开发运行时需允许启动它的终端或 IDE': 'Allow the pet to record the screen in System Settings; in development, allow the terminal or IDE that starts it',
+  'macOS 屏幕录制权限尚未授予': 'macOS screen recording permission has not been granted',
+  '未安装 Tesseract；安装后可启用本地 OCR，并添加所需语言包': 'Tesseract is not installed; install it (with the language packs you need) to enable local OCR',
+  'Tesseract 尚未安装文字识别语言包': 'Tesseract has no OCR language packs installed',
+}
+const helperText = (s) => (s && !isZh() && HELPER_EN[s]) || s
 
 const TMP_PREFIX = 'claude-ojousama-look-'
 const SHELL_CLASSES = new Set(['Progman', 'WorkerW', 'Shell_TrayWnd', 'Shell_SecondaryTrayWnd', 'NotifyIconOverflowWindow', 'Windows.UI.Core.CoreWindow'])
@@ -29,7 +40,7 @@ function initialCapabilities(platform = process.platform, env = process.env) {
   return {
     platform, session, foreground: platform === 'win32', windows: platform === 'win32', ocr: false,
     manualCapture: !['headless', 'unsupported'].includes(session), screenCapture: platform === 'win32',
-    reason: session === 'wayland' ? 'Wayland 不提供全局窗口信息，请使用手动选屏；桌宠移动需要 XWayland' : session === 'headless' ? '没有图形桌面会话' : '正在检测屏幕能力',
+    reason: session === 'wayland' ? T('Wayland 不提供全局窗口信息，请使用手动选屏；桌宠移动需要 XWayland', 'Wayland gives no global window info; use manual screen picking. Moving the pet needs XWayland') : session === 'headless' ? T('没有图形桌面会话', 'No graphical desktop session') : T('正在检测屏幕能力', 'Checking screen capabilities'),
     permissions: {}, dependencies: {},
   }
 }
@@ -65,13 +76,13 @@ class ScreenSense {
     const result = await this.request('capabilities', {}, 10000, { soft: true })
     if (result.ok) {
       const { ok, id, ...value } = result
-      this._capabilities = { ...this._capabilities, ...value, helperAvailable: true, reason: value.reason || '' }
-      if (this._capabilities.session === 'wayland') this._capabilities.reason = 'Wayland 不提供全局窗口信息，请使用手动选屏；桌宠移动需要 XWayland'
+      this._capabilities = { ...this._capabilities, ...value, helperAvailable: true, reason: helperText(value.reason) || '', ocrReason: helperText(value.ocrReason) }
+      if (this._capabilities.session === 'wayland') this._capabilities.reason = T('Wayland 不提供全局窗口信息，请使用手动选屏；桌宠移动需要 XWayland', 'Wayland gives no global window info; use manual screen picking. Moving the pet needs XWayland')
     } else if (process.platform === 'win32') {
       // Windows always has window info; a slow cold start (WinRT OCR loading) must not switch it off.
-      this._capabilities = { ...this._capabilities, helperAvailable: false, reason: result.error }
+      this._capabilities = { ...this._capabilities, helperAvailable: false, reason: helperText(result.error) }
     } else {
-      this._capabilities = { ...this._capabilities, foreground: false, windows: false, ocr: false, helperAvailable: false, reason: result.error }
+      this._capabilities = { ...this._capabilities, foreground: false, windows: false, ocr: false, helperAvailable: false, reason: helperText(result.error) }
     }
     if (process.platform === 'darwin' && systemPreferences) {
       const status = systemPreferences.getMediaAccessStatus('screen')
@@ -79,7 +90,7 @@ class ScreenSense {
       this._capabilities.screenCapture = status === 'granted'
       if (status !== 'granted') {
         this._capabilities.foreground = false
-        this._capabilities.reason = '请在系统设置 → 隐私与安全性 → 屏幕与系统音频录制中允许桌宠；开发运行时允许启动它的终端或 IDE'
+        this._capabilities.reason = T('请在系统设置 → 隐私与安全性 → 屏幕与系统音频录制中允许桌宠；开发运行时允许启动它的终端或 IDE', 'Allow the pet in System Settings → Privacy & Security → Screen & System Audio Recording; in development, allow the terminal or IDE that starts it')
       }
     }
     return this.capabilities()
@@ -92,7 +103,7 @@ class ScreenSense {
     if (Date.now() < (this.retryAt || 0)) return false
     const helper = helperCommand()
     if (!helper) {
-      this.helperError = process.platform === 'darwin' ? '缺少 macOS 屏幕助手，请先运行 npm run build:helpers 或重新安装应用' : '当前平台没有屏幕助手'
+      this.helperError = process.platform === 'darwin' ? T('缺少 macOS 屏幕助手，请先运行 npm run build:helpers 或重新安装应用', 'The macOS screen helper is missing; run npm run build:helpers or reinstall the app') : T('当前平台没有屏幕助手', 'No screen helper for this platform')
       return false
     }
     let buf = '' // per process: a killed helper's late output never mixes into the new one's
@@ -102,13 +113,13 @@ class ScreenSense {
       this.helperError = null
     } catch (e) {
       this.retryAt = Date.now() + 5 * 60000
-      this.helperError = `无法启动屏幕助手：${e.message}`
+      this.helperError = T(`无法启动屏幕助手：${e.message}`, `Can't start the screen helper: ${e.message}`)
       console.warn('[screen-helper] cannot start', e.message)
       return false
     }
     p.on('error', (e) => {
       console.warn('[screen-helper]', e.message)
-      this.helperError = process.platform === 'linux' && e.code === 'ENOENT' ? '未找到 Python 3；安装后重启应用以启用窗口检测和 OCR' : `无法启动屏幕助手：${e.message}`
+      this.helperError = process.platform === 'linux' && e.code === 'ENOENT' ? T('未找到 Python 3；安装后重启应用以启用窗口检测和 OCR', 'Python 3 not found; install it and restart the app to enable window detection and OCR') : T(`无法启动屏幕助手：${e.message}`, `Can't start the screen helper: ${e.message}`)
       this.retryAt = Date.now() + 5 * 60000
       if (this.proc === p) this.proc = null
       this._failPending(this.helperError)
@@ -139,7 +150,7 @@ class ScreenSense {
     p.stderr.on('data', (d) => console.warn('[screen-helper]', String(d).trim().slice(0, 300)))
     p.on('exit', () => {
       if (this.proc !== p && this.proc) return // an old, replaced helper: its requests were settled already
-      this._failPending(this.helperError || '屏幕助手已退出')
+      this._failPending(this.helperError || T('屏幕助手已退出', 'The screen helper exited'))
       if (this.proc === p) this.proc = null
     })
     p.stdin.on('error', () => {})
@@ -166,7 +177,7 @@ class ScreenSense {
    * merely queued behind a slow one (OCR).
    */
   request(cmd, args = {}, timeout = 10000, { soft = false } = {}) {
-    if (!this._ensure()) return Promise.resolve({ ok: false, error: this.helperError || '屏幕助手不可用' })
+    if (!this._ensure()) return Promise.resolve({ ok: false, error: this.helperError || T('屏幕助手不可用', 'The screen helper is unavailable') })
     const id = ++this.seq
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
@@ -201,7 +212,7 @@ class ScreenSense {
       if (this.proc) this.proc.kill()
     } catch {}
     this.proc = null
-    this._failPending('屏幕助手已停止')
+    this._failPending(T('屏幕助手已停止', 'The screen helper stopped'))
   }
 
   // ------------------------------------------------------------ window info
@@ -288,10 +299,10 @@ class ScreenSense {
   // ------------------------------------------------------------ pictures and text
 
   _checkCapture(manual = false) {
-    if (!manual && this._capabilities.session === 'wayland') throw new Error('Wayland 看屏需要用户手动选择共享画面')
+    if (!manual && this._capabilities.session === 'wayland') throw new Error(T('Wayland 看屏需要用户手动选择共享画面', 'On Wayland, screen looks need you to pick what to share'))
     if (process.platform === 'darwin' && systemPreferences) {
       const status = systemPreferences.getMediaAccessStatus('screen')
-      if (status !== 'granted' && (!manual || status === 'denied' || status === 'restricted')) throw new Error('尚未获得 macOS 屏幕录制权限，请在系统设置中允许桌宠')
+      if (status !== 'granted' && (!manual || status === 'denied' || status === 'restricted')) throw new Error(T('尚未获得 macOS 屏幕录制权限，请在系统设置中允许桌宠', 'No macOS screen recording permission yet; allow the pet in System Settings'))
     }
   }
 
@@ -300,17 +311,17 @@ class ScreenSense {
     this._checkCapture(true)
     const sources = await desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 2560, height: 1600 }, fetchWindowIcons: false })
     const available = sources.filter((source) => source.thumbnail && !source.thumbnail.isEmpty())
-    if (!available.length) throw new Error('没有选中共享画面，或系统拒绝了屏幕录制权限')
+    if (!available.length) throw new Error(T('没有选中共享画面，或系统拒绝了屏幕录制权限', 'Nothing was picked to share, or the system denied screen recording'))
     const id = available.length === 1 ? available[0].id : chooseSource ? await chooseSource(available.map(({ id, name }) => ({ id, name }))) : null
-    if (!id) throw new Error('已取消选择共享画面')
+    if (!id) throw new Error(T('已取消选择共享画面', 'Screen sharing was cancelled'))
     const source = available.find((value) => value.id === id)
-    if (!source) throw new Error('选择的共享画面已不可用')
+    if (!source) throw new Error(T('选择的共享画面已不可用', 'The picked screen is no longer available'))
     const display = screen.getAllDisplays().find((value) => String(value.id) === String(source.display_id)) || screen.getPrimaryDisplay()
     const size = source.thumbnail.getSize()
     return {
       image: source.thumbnail,
       info: {
-        manual: true, hwnd: source.id, title: source.name || '共享画面', process: '用户选择的画面', cls: '', pid: 0,
+        manual: true, hwnd: source.id, title: source.name || T('共享画面', 'Shared screen'), process: T('用户选择的画面', 'Picked by you'), cls: '', pid: 0,
         bounds: { x: 0, y: 0, width: size.width, height: size.height },
         display: { id: display.id, bounds: display.bounds, workArea: display.workArea, scaleFactor: display.scaleFactor },
         own: false, shell: false, minimized: false, maximized: false, fullscreen: false, key: source.id,
@@ -325,7 +336,7 @@ class ScreenSense {
     const size = { width: Math.round(d.bounds.width * d.scaleFactor), height: Math.round(d.bounds.height * d.scaleFactor) }
     const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: size })
     const src = sources.find((s) => String(s.display_id) === String(d.id)) || (sources.length === 1 ? sources[0] : null)
-    if (!src || src.thumbnail.isEmpty()) throw new Error('截不到这块屏幕')
+    if (!src || src.thumbnail.isEmpty()) throw new Error(T('截不到这块屏幕', "Can't capture this screen"))
     const img = src.thumbnail
     const ts = img.getSize()
     const kx = ts.width / d.bounds.width
@@ -334,7 +345,7 @@ class ScreenSense {
     const y0 = Math.max(0, Math.round((info.bounds.y - d.bounds.y) * ky))
     const x1 = Math.min(ts.width, Math.round((info.bounds.x + info.bounds.width - d.bounds.x) * kx))
     const y1 = Math.min(ts.height, Math.round((info.bounds.y + info.bounds.height - d.bounds.y) * ky))
-    if (x1 - x0 < 40 || y1 - y0 < 40) throw new Error('窗口太小或不在屏幕上')
+    if (x1 - x0 < 40 || y1 - y0 < 40) throw new Error(T('窗口太小或不在屏幕上', 'The window is too small or off screen'))
     return img.crop({ x: x0, y: y0, width: x1 - x0, height: y1 - y0 })
   }
 
@@ -345,7 +356,7 @@ class ScreenSense {
     const size = { width: Math.min(2560, Math.round(info.bounds.width * k)), height: Math.min(2560, Math.round(info.bounds.height * k)) }
     const sources = await desktopCapturer.getSources({ types: ['window'], thumbnailSize: size, fetchWindowIcons: false })
     const src = sources.find((s) => s.id.startsWith(`window:${info.hwnd}:`))
-    if (!src || src.thumbnail.isEmpty()) throw new Error('找不到那个窗口')
+    if (!src || src.thumbnail.isEmpty()) throw new Error(T('找不到那个窗口', "Can't find that window"))
     return src.thumbnail
   }
 

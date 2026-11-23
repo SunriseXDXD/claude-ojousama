@@ -2,6 +2,7 @@
 // Tiny JSON-file store with debounced atomic writes. One file per app.
 const fs = require('fs')
 const path = require('path')
+const { T } = require('./i18n')
 
 const DEFAULTS = {
   settings: {
@@ -52,7 +53,7 @@ const DEFAULTS = {
     stockDefaultPool: true, // ~125 large US companies, plus stockWatch
     stockWatch: [], // the user's own US tickers
     stockDropPct: 10, // below the 1-month high by this much (or 0.7x in 5 trading days) = a rapid drop
-    stockColors: 'red-up', // red-up (红涨绿跌) | green-up
+    stockColors: T('red-up', 'green-up'), // red-up (红涨绿跌, the Chinese convention) | green-up (the US one)
   },
   update: { checkedAt: 0, latest: null, error: '', notifiedVersion: '', skipVersion: '', laterUntil: 0 },
   pet: { x: null, y: null, affection: 0, mood: 0, lastGreetDay: '', lastNightNag: '', lastNoteDay: '', lastSummaryDay: '', screenPauseUntil: 0, lastRainDay: '', lastGiftAt: 0 },

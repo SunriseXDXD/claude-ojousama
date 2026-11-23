@@ -49,6 +49,14 @@ nav {
   display: flex;
   gap: 1px;
 }
+/* English tab names are longer: the tabs move under the title instead of scrolling sideways. */
+html[lang='en'] header {
+  flex-wrap: wrap;
+}
+html[lang='en'] nav {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 nav button {
   padding: 4px 4px;
   border: 2px solid transparent;

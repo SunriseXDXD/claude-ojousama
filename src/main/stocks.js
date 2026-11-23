@@ -3,6 +3,7 @@
 // exchanges in USD are kept. For each one: a 5-year trend fit, the short-term drop, and how today's
 // price compares with the past 1 month / half year / 1 year. Scans run three times per US trading day.
 const fs = require('fs')
+const { T } = require('./i18n')
 
 const DAY = 86400e3
 const YEAR = 365.25 * DAY
@@ -27,9 +28,9 @@ const DEFAULT_POOL = [
 // Yahoo codes of the major US exchanges: Nasdaq (three tiers), NYSE, NYSE American, NYSE Arca, Cboe BZX.
 const US_EXCHANGES = new Set(['NMS', 'NGM', 'NCM', 'NAS', 'NYQ', 'NYS', 'ASE', 'PCX', 'BTS'])
 const WINDOWS = [
-  { key: 'm1', label: '近 1 个月', days: 30 },
-  { key: 'm6', label: '近半年', days: 182 },
-  { key: 'y1', label: '近 1 年', days: 365 },
+  { key: 'm1', label: T('近 1 个月', 'Past month'), days: 30 },
+  { key: 'm6', label: T('近半年', 'Past 6 months'), days: 182 },
+  { key: 'y1', label: T('近 1 年', 'Past year'), days: 365 },
 ]
 
 const mean = (a) => a.reduce((s, v) => s + v, 0) / a.length
@@ -46,10 +47,10 @@ function normalizeSymbol(raw) {
 
 /** Why a quote is not a US stock, or null when it is one. */
 function usCheck(meta) {
-  if (!meta) return '没有行情数据'
-  if (meta.currency !== 'USD') return `不是美元计价（${meta.currency || '未知'}）`
-  if (!US_EXCHANGES.has(meta.exchangeName)) return `不在美国主要交易所上市（${meta.fullExchangeName || meta.exchangeName || '未知'}）`
-  if (meta.instrumentType && meta.instrumentType !== 'EQUITY') return `不是个股（${meta.instrumentType}）`
+  if (!meta) return T('没有行情数据', 'No market data')
+  if (meta.currency !== 'USD') return T(`不是美元计价（${meta.currency || '未知'}）`, `Not priced in USD (${meta.currency || 'unknown'})`)
+  if (!US_EXCHANGES.has(meta.exchangeName)) return T(`不在美国主要交易所上市（${meta.fullExchangeName || meta.exchangeName || '未知'}）`, `Not listed on a major US exchange (${meta.fullExchangeName || meta.exchangeName || 'unknown'})`)
+  if (meta.instrumentType && meta.instrumentType !== 'EQUITY') return T(`不是个股（${meta.instrumentType}）`, `Not a single stock (${meta.instrumentType})`)
   return null
 }
 
@@ -71,9 +72,9 @@ function dedupeDays(points, gmtoffset = 0) {
 /** Yahoo chart JSON → { meta, points: [[unixSeconds, close]] } (split-adjusted closes, gaps dropped). */
 function parseChart(json) {
   const chart = json && json.chart
-  if (chart && chart.error) throw dataError(chart.error.description || chart.error.code || 'Yahoo 返回了错误')
+  if (chart && chart.error) throw dataError(chart.error.description || chart.error.code || T('Yahoo 返回了错误', 'Yahoo returned an error'))
   const r = chart && chart.result && chart.result[0]
-  if (!r || !r.meta) throw dataError('没有行情数据')
+  if (!r || !r.meta) throw dataError(T('没有行情数据', 'No market data'))
   const ts = r.timestamp || []
   const quote = (r.indicators && r.indicators.quote && r.indicators.quote[0]) || {}
   const close = quote.close || []
@@ -178,7 +179,7 @@ function analyze(points, { dropPct = 10 } = {}) {
   const uptrend = trend.label === 'strong' || trend.label === 'up'
   const positions = WINDOWS.map((w) => windows[w.key]).filter(Boolean).map((w) => w.pos)
   const score = positions.length ? mean(positions) : null
-  const level = score == null ? null : score < 0.2 ? '低位' : score < 0.4 ? '偏低' : score < 0.6 ? '中间' : score < 0.8 ? '偏高' : '高位'
+  const level = score == null ? null : score < 0.2 ? T('低位', 'a low') : score < 0.4 ? T('偏低', 'a lowish') : score < 0.6 ? T('中间', 'a middle') : score < 0.8 ? T('偏高', 'a highish') : T('高位', 'a high')
   return {
     price, at: lastT, windows, trend, drop5, dd1m, high1m, ma200,
     ma200Rising: ma200 != null && ma200Ago != null ? ma200 > ma200Ago : null,
@@ -192,24 +193,24 @@ function describe(m) {
   const yrs = Math.max(1, Math.round(tr.years))
   const trendLine =
     tr.label === 'unknown'
-      ? `上市不到 2 年（${tr.years.toFixed(1)} 年），看不出长期趋势`
+      ? T(`上市不到 2 年（${tr.years.toFixed(1)} 年），看不出长期趋势`, `Listed under 2 years (${tr.years.toFixed(1)} y); no long-term trend to read`)
       : tr.label === 'down'
-        ? `近 ${yrs} 年整体下跌：年化约 ${pct(tr.annual)}`
+        ? T(`近 ${yrs} 年整体下跌：年化约 ${pct(tr.annual)}`, `Down overall over ${yrs} years: about ${pct(tr.annual)} a year`)
         : tr.label === 'flat'
-          ? `近 ${yrs} 年没有明显的上涨趋势（年化 ${pct(tr.annual)}，稳定度 R² ${tr.r2.toFixed(2)}）`
-          : `近 ${yrs} 年整体上涨：年化约 ${pct(tr.annual)}，走势稳定度 R² ${tr.r2.toFixed(2)}；现价比长期趋势线${tr.vsTrend < 0 ? '低' : '高'} ${absPct(tr.vsTrend)}`
-  const dropLine = `最近 5 个交易日 ${pct(m.drop5)}；${m.dd1m < -0.0005 ? `比 1 个月内最高价 ${usd(m.high1m)} 低 ${absPct(m.dd1m)}` : '就在 1 个月内的最高价附近'}`
+          ? T(`近 ${yrs} 年没有明显的上涨趋势（年化 ${pct(tr.annual)}，稳定度 R² ${tr.r2.toFixed(2)}）`, `No clear uptrend over ${yrs} years (${pct(tr.annual)} a year, steadiness R² ${tr.r2.toFixed(2)})`)
+          : T(`近 ${yrs} 年整体上涨：年化约 ${pct(tr.annual)}，走势稳定度 R² ${tr.r2.toFixed(2)}；现价比长期趋势线${tr.vsTrend < 0 ? '低' : '高'} ${absPct(tr.vsTrend)}`, `Up overall over ${yrs} years: about ${pct(tr.annual)} a year, steadiness R² ${tr.r2.toFixed(2)}; price is ${absPct(tr.vsTrend)} ${tr.vsTrend < 0 ? 'below' : 'above'} the long-term trend line`)
+  const dropLine = T(`最近 5 个交易日 ${pct(m.drop5)}；${m.dd1m < -0.0005 ? `比 1 个月内最高价 ${usd(m.high1m)} 低 ${absPct(m.dd1m)}` : '就在 1 个月内的最高价附近'}`, `Last 5 trading days ${pct(m.drop5)}; ${m.dd1m < -0.0005 ? `${absPct(m.dd1m)} below the 1-month high of ${usd(m.high1m)}` : 'right near the 1-month high'}`)
   const compare = WINDOWS.map((w) => {
     const x = m.windows[w.key]
-    if (!x) return { key: w.key, label: w.label, text: '还没有这么长的交易历史' }
+    if (!x) return { key: w.key, label: w.label, text: T('还没有这么长的交易历史', 'Not enough trading history yet') }
     return {
       key: w.key,
       label: w.label,
-      text: `比当时 ${pct(x.change)}；比均价 ${usd(x.avg)} ${x.vsAvg >= 0 ? '高' : '低'} ${absPct(x.vsAvg)}；在区间 ${usd(x.low)}–${usd(x.high)} 的 ${Math.round(x.pos * 100)}% 位置`,
+      text: T(`比当时 ${pct(x.change)}；比均价 ${usd(x.avg)} ${x.vsAvg >= 0 ? '高' : '低'} ${absPct(x.vsAvg)}；在区间 ${usd(x.low)}–${usd(x.high)} 的 ${Math.round(x.pos * 100)}% 位置`, `${pct(x.change)} since then; ${absPct(x.vsAvg)} ${x.vsAvg >= 0 ? 'above' : 'below'} the average of ${usd(x.avg)}; at ${Math.round(x.pos * 100)}% of the ${usd(x.low)}–${usd(x.high)} range`),
     }
   })
   const levelLine = m.level
-    ? `综合近 1 个月、半年、1 年的价格区间，现在处在${m.level}（平均在区间的 ${Math.round(m.score * 100)}% 位置）。只和它自己过去的价格比，不是估值。`
+    ? T(`综合近 1 个月、半年、1 年的价格区间，现在处在${m.level}（平均在区间的 ${Math.round(m.score * 100)}% 位置）。只和它自己过去的价格比，不是估值。`, `Across the 1-month, 6-month and 1-year price ranges, it now sits at ${m.level} level (on average ${Math.round(m.score * 100)}% of the range). Compared only with its own past prices; not a valuation.`)
     : ''
   return { trend: trendLine, drop: dropLine, compare, level: levelLine }
 }
@@ -313,11 +314,11 @@ class StockWatch {
             headers: { Accept: 'application/json' },
           })
           if (r.status === 429) {
-            last = Object.assign(new Error('Yahoo 限流了（HTTP 429）'), { rateLimited: true })
+            last = Object.assign(new Error(T('Yahoo 限流了（HTTP 429）', 'Yahoo is rate-limiting (HTTP 429)')), { rateLimited: true })
             await this.sleep(4000 * (attempt + 1))
             continue
           }
-          if (r.status === 404) throw dataError('找不到这个代码（可能已退市）')
+          if (r.status === 404) throw dataError(T('找不到这个代码（可能已退市）', 'Symbol not found (maybe delisted)'))
           if (!r.ok) throw new Error('HTTP ' + r.status)
           return parseChart(await r.json())
         } catch (e) {
@@ -369,7 +370,7 @@ class StockWatch {
         else {
           const live = withLive(points, meta)
           const m = analyze(live, { dropPct: s.stockDropPct })
-          if (!m) errors[symbol] = '交易数据太少'
+          if (!m) errors[symbol] = T('交易数据太少', 'Too little trading data')
           else {
             results[symbol] = { symbol, name: meta.longName || meta.shortName || symbol, exchange: meta.fullExchangeName || meta.exchangeName, ...m }
             series[symbol] = { day, points: live }
@@ -385,7 +386,7 @@ class StockWatch {
           if (this.data.series[symbol]) series[symbol] = this.data.series[symbol]
         }
         if (e.rateLimited && ++limited >= 3) {
-          stoppedBy = 'Yahoo 限流了，这次先停下，稍后再看'
+          stoppedBy = T('Yahoo 限流了，这次先停下，稍后再看', 'Yahoo is rate-limiting; stopping for now, will try later')
           break
         }
       }
@@ -395,7 +396,7 @@ class StockWatch {
     }
     if (!got) {
       const first = Object.values(errors)[0]
-      return { error: stoppedBy || (first ? `一只都没拿到：${first}` : '没有要看的股票'), errors, count: 0, dips: [] }
+      return { error: stoppedBy || (first ? T(`一只都没拿到：${first}`, `Couldn't get any: ${first}`) : T('没有要看的股票', 'No stocks to check')), errors, count: 0, dips: [] }
     }
     // Keep earlier readings of stocks this scan never reached (stopped early).
     for (const symbol of symbols) {
@@ -501,8 +502,8 @@ class StockWatch {
     const when = `${d.getMonth() + 1}-${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
     const dips = this.dips()
     return dips.length
-      ? `美股观察（${when} 看的，只是数据）：长期上涨但最近急跌的有 ${dips.slice(0, 6).map((x) => `${x.symbol}（比 1 个月高点 ${pct(x.dd1m)}）`).join('、')}`
-      : `美股观察（${when} 看的）：观察的 ${Object.keys(this.data.results).length} 只里没有长期上涨又最近急跌的`
+      ? T(`美股观察（${when} 看的，只是数据）：长期上涨但最近急跌的有 ${dips.slice(0, 6).map((x) => `${x.symbol}（比 1 个月高点 ${pct(x.dd1m)}）`).join('、')}`, `US stock watch (checked ${when}, data only): long-term risers that dropped sharply lately: ${dips.slice(0, 6).map((x) => `${x.symbol} (${pct(x.dd1m)} vs 1-month high)`).join(', ')}`)
+      : T(`美股观察（${when} 看的）：观察的 ${Object.keys(this.data.results).length} 只里没有长期上涨又最近急跌的`, `US stock watch (checked ${when}): none of the ${Object.keys(this.data.results).length} watched stocks is a long-term riser with a sharp recent drop`)
   }
 }
 

@@ -14,7 +14,7 @@ function fmt(ts, withDate = true) {
   const t = `${pad(d.getHours())}:${pad(d.getMinutes())}`
   if (!withDate) return t
   const today = new Date()
-  if (d.toDateString() === today.toDateString()) return `今天 ${t}`
+  if (d.toDateString() === today.toDateString()) return T(`今天 ${t}`, `Today ${t}`)
   return `${d.getMonth() + 1}-${pad(d.getDate())} ${t}`
 }
 function toLocalInput(ts) {
@@ -64,7 +64,7 @@ function renderChat() {
   if (msgs.length === renderedChatCount) return
   const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40
   box.innerHTML = ''
-  if (!msgs.length) box.append(el('div', { class: 'empty' }, '还没有聊天记录～在下面说点什么吧'))
+  if (!msgs.length) box.append(el('div', { class: 'empty' }, T('还没有聊天记录～在下面说点什么吧', 'No messages yet — say something below')))
   for (const m of msgs) {
     box.append(el('div', { class: 'msg ' + m.role, html: formatText(m.text) + `<time>${fmt(m.ts)}</time>` }))
   }
@@ -76,7 +76,7 @@ function renderTodos() {
   const list = $('#todo-list')
   list.innerHTML = ''
   const todos = [...snap.todos].sort((a, b) => a.done - b.done || (a.due || 9e15) - (b.due || 9e15))
-  if (!todos.length) list.append(el('li', { class: 'empty' }, '没有待办，轻松一下～'))
+  if (!todos.length) list.append(el('li', { class: 'empty' }, T('没有待办，轻松一下～', 'No to-dos. Relax a little~')))
   for (const t of todos) {
     const late = !t.done && t.due && t.due < Date.now()
     list.append(
@@ -86,27 +86,27 @@ function renderTodos() {
         el('input', { type: 'checkbox', ...(t.done ? { checked: '' } : {}), onchange: (e) => pet.invoke('todo:update', { id: t.id, patch: { done: e.target.checked, doneAt: Date.now() } }) }),
         el('span', { class: 'txt' }, t.text),
         t.due ? el('span', { class: 'due' + (late ? ' late' : '') }, fmt(t.due)) : null,
-        el('button', { title: '删除', onclick: () => pet.invoke('todo:remove', t.id) }, '✕'),
+        el('button', { title: T('删除', 'Delete'), onclick: () => pet.invoke('todo:remove', t.id) }, '✕'),
       ),
     )
   }
   const rl = $('#rem-list')
   rl.innerHTML = ''
   const rems = snap.reminders.filter((r) => !r.fired).sort((a, b) => a.at - b.at)
-  if (!rems.length) rl.append(el('li', { class: 'empty' }, '没有提醒'))
+  if (!rems.length) rl.append(el('li', { class: 'empty' }, T('没有提醒', 'No reminders')))
   for (const r of rems) {
-    rl.append(el('li', {}, el('span', { class: 'txt' }, r.text), el('span', { class: 'due' }, fmt(r.at) + (r.repeat ? ' · 每天' : '')), el('button', { onclick: () => pet.invoke('reminder:remove', r.id) }, '✕')))
+    rl.append(el('li', {}, el('span', { class: 'txt' }, r.text), el('span', { class: 'due' }, fmt(r.at) + (r.repeat ? T(' · 每天', ' · daily') : '')), el('button', { onclick: () => pet.invoke('reminder:remove', r.id) }, '✕')))
   }
   const p = snap.pomodoro
-  $('#pomo-state').textContent = p ? `${p.phase === 'focus' ? '专注中' : '休息中'}，${fmt(p.endsAt, false)} 结束` : ''
+  $('#pomo-state').textContent = p ? T(`${p.phase === 'focus' ? '专注中' : '休息中'}，${fmt(p.endsAt, false)} 结束`, `${p.phase === 'focus' ? 'Focusing' : 'On a break'}, ends ${fmt(p.endsAt, false)}`) : ''
 }
 
 function renderTasks() {
   const list = $('#task-list')
   list.innerHTML = ''
-  if (!snap.tasks.length) list.append(el('li', { class: 'empty' }, '还没有后台任务'))
+  if (!snap.tasks.length) list.append(el('li', { class: 'empty' }, T('还没有后台任务', 'No background tasks yet')))
   for (const t of snap.tasks) {
-    const label = { running: '进行中', done: '完成', error: '失败' }[t.status] || t.status
+    const label = T({ running: '进行中', done: '完成', error: '失败' }, { running: 'Running', done: 'Done', error: 'Failed' })[t.status] || t.status
     list.append(
       el(
         'li',
@@ -117,7 +117,7 @@ function renderTasks() {
           el('span', { class: 'badge ' + t.status }, label),
           el('b', { class: 'grow' }, t.title),
           el('span', { class: 'muted' }, fmt(t.startedAt)),
-          t.status === 'running' ? el('button', { onclick: () => pet.invoke('task:cancel', t.id) }, '取消') : el('button', { onclick: () => pet.invoke('task:remove', t.id) }, '删除'),
+          t.status === 'running' ? el('button', { onclick: () => pet.invoke('task:cancel', t.id) }, T('取消', 'Cancel')) : el('button', { onclick: () => pet.invoke('task:remove', t.id) }, T('删除', 'Delete')),
         ),
         t.activity ? el('div', { class: 'muted' }, t.activity) : null,
         t.result ? el('div', { class: 'result', html: formatText(t.result) }) : null,
@@ -126,14 +126,14 @@ function renderTasks() {
   }
 }
 
-const EVERY_LABEL = { hourly: '每小时', '3h': '每 3 小时', daily: '每天' }
+const EVERY_LABEL = { hourly: T('每小时', 'Hourly'), '3h': T('每 3 小时', 'Every 3 hours'), daily: T('每天', 'Daily') }
 
 function goalStatus(g) {
-  if (g.running) return ['running', '跟进中…']
-  if (g.status === 'done') return ['done', '完成']
-  if (g.status === 'paused') return ['paused', '暂停']
-  if (g.question) return ['ask', '等你拍板']
-  return ['active', '进行中']
+  if (g.running) return ['running', T('跟进中…', 'Working…')]
+  if (g.status === 'done') return ['done', T('完成', 'Done')]
+  if (g.status === 'paused') return ['paused', T('暂停', 'Paused')]
+  if (g.question) return ['ask', T('等你拍板', 'Needs your call')]
+  return ['active', T('进行中', 'Active')]
 }
 
 function renderGoals() {
@@ -142,10 +142,10 @@ function renderGoals() {
   if (list.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return
   list.innerHTML = ''
   const goals = snap.goals || []
-  if (!goals.length) list.append(el('li', { class: 'empty' }, '还没有目标～交给她一件需要长期跟进的事吧'))
+  if (!goals.length) list.append(el('li', { class: 'empty' }, T('还没有目标～交给她一件需要长期跟进的事吧', 'No goals yet — hand her something that needs following up over time')))
   for (const g of [...goals].reverse()) {
     const [cls, label] = goalStatus(g)
-    const sched = g.every === 'daily' ? `每天 ${g.at || '09:00'}` : EVERY_LABEL[g.every] || ''
+    const sched = g.every === 'daily' ? T(`每天 ${g.at || '09:00'}`, `Daily ${g.at || '09:00'}`) : EVERY_LABEL[g.every] || ''
     const busy = g.running || snap.goalBusy
     list.append(
       el(
@@ -163,7 +163,7 @@ function renderGoals() {
                 'div',
                 { class: 'row' },
                 ...(g.question.options || []).map((o) => el('button', { class: 'primary', onclick: () => pet.invoke('goal:answer', { id: g.id, answer: o }) }, o)),
-                el('button', { onclick: () => pet.invoke('goal:answer', { id: g.id, answer: '__auto' }) }, '你决定吧'),
+                el('button', { onclick: () => pet.invoke('goal:answer', { id: g.id, answer: '__auto' }) }, T('你决定吧', 'You decide')),
               ),
               el(
                 'form',
@@ -175,8 +175,8 @@ function renderGoals() {
                     if (v) pet.invoke('goal:answer', { id: g.id, answer: v })
                   },
                 },
-                el('input', { placeholder: '或者直接写下你的想法…', maxlength: '300' }),
-                el('button', { class: 'primary' }, '回答'),
+                el('input', { placeholder: T('或者直接写下你的想法…', 'Or just write what you think…'), maxlength: '300' }),
+                el('button', { class: 'primary' }, T('回答', 'Answer')),
               ),
             )
           : null,
@@ -186,13 +186,13 @@ function renderGoals() {
         el(
           'div',
           { class: 'row' },
-          el('span', { class: 'muted grow' }, g.status === 'active' && g.nextAt && !g.running ? `下次跟进：${fmt(g.nextAt)}` : ''),
-          el('button', { onclick: () => pet.invoke('goal:run', g.id), ...(busy ? { disabled: '' } : {}) }, '立即跟进'),
+          el('span', { class: 'muted grow' }, g.status === 'active' && g.nextAt && !g.running ? T(`下次跟进：${fmt(g.nextAt)}`, `Next follow-up: ${fmt(g.nextAt)}`) : ''),
+          el('button', { onclick: () => pet.invoke('goal:run', g.id), ...(busy ? { disabled: '' } : {}) }, T('立即跟进', 'Follow up now')),
           g.status === 'active'
-            ? el('button', { onclick: () => pet.invoke('goal:update', { id: g.id, patch: { status: 'paused' } }) }, '暂停')
-            : el('button', { onclick: () => pet.invoke('goal:update', { id: g.id, patch: { status: 'active' } }) }, g.status === 'done' ? '重新开始' : '继续'),
-          g.status !== 'done' ? el('button', { onclick: () => pet.invoke('goal:update', { id: g.id, patch: { status: 'done' } }) }, '完成') : null,
-          el('button', { onclick: () => pet.invoke('goal:remove', g.id) }, '删除'),
+            ? el('button', { onclick: () => pet.invoke('goal:update', { id: g.id, patch: { status: 'paused' } }) }, T('暂停', 'Pause'))
+            : el('button', { onclick: () => pet.invoke('goal:update', { id: g.id, patch: { status: 'active' } }) }, g.status === 'done' ? T('重新开始', 'Restart') : T('继续', 'Resume')),
+          g.status !== 'done' ? el('button', { onclick: () => pet.invoke('goal:update', { id: g.id, patch: { status: 'done' } }) }, T('完成', 'Done')) : null,
+          el('button', { onclick: () => pet.invoke('goal:remove', g.id) }, T('删除', 'Delete')),
         ),
       ),
     )
@@ -203,21 +203,21 @@ function renderActivity() {
   const list = $('#act-list')
   list.innerHTML = ''
   const acts = snap.activity || []
-  if (!acts.length) list.append(el('li', { class: 'empty' }, '她还没有自己做过什么～'))
+  if (!acts.length) list.append(el('li', { class: 'empty' }, T('她还没有自己做过什么～', "She hasn't done anything on her own yet~")))
   for (const a of acts.slice(0, 80)) list.append(el('li', {}, el('span', { class: 'icon' }, a.icon || '•'), el('span', { class: 'txt' }, a.text), el('span', { class: 'due' }, fmt(a.ts))))
   const ml = $('#mem-list')
   ml.innerHTML = ''
   const mems = snap.memories || []
-  if (!mems.length) ml.append(el('li', { class: 'empty' }, '还没有记住什么'))
-  const KIND = { preference: '偏好', habit: '习惯', fact: '事实', project: '项目', person: '人' }
+  if (!mems.length) ml.append(el('li', { class: 'empty' }, T('还没有记住什么', 'Nothing remembered yet')))
+  const KIND = T({ preference: '偏好', habit: '习惯', fact: '事实', project: '项目', person: '人' }, { preference: 'Preference', habit: 'Habit', fact: 'Fact', project: 'Project', person: 'Person' })
   for (const m of [...mems].sort((a, b) => (b.weight || 3) - (a.weight || 3) || b.ts - a.ts)) {
     ml.append(
       el(
         'li',
         {},
         el('span', { class: 'txt' }, `${'★'.repeat(m.weight || 3)} ${m.text}`),
-        el('span', { class: 'due' }, `${KIND[m.kind] || ''}${m.source === 'user' ? ' · 你写的' : m.source === 'reflect' ? ' · 整理' : ''}`),
-        el('button', { title: '让她忘掉', onclick: () => pet.invoke('memory:remove', m.id) }, '✕'),
+        el('span', { class: 'due' }, `${KIND[m.kind] || ''}${m.source === 'user' ? T(' · 你写的', ' · by you') : m.source === 'reflect' ? T(' · 整理', ' · tidied') : ''}`),
+        el('button', { title: T('让她忘掉', 'Make her forget'), onclick: () => pet.invoke('memory:remove', m.id) }, '✕'),
       ),
     )
   }
@@ -235,23 +235,23 @@ function renderGrowth() {
   for (const u of g.unlocks) ul.append(el('li', { class: u.open ? 'open' : '' }, `${u.open ? '✓' : '🔒'} Lv.${u.level} ${u.label}`))
   const sl = $('#stat-list')
   sl.innerHTML = ''
-  if (!g.stats.length) sl.append(el('li', { class: 'empty' }, '还在观察你喜欢哪种帮忙～'))
+  if (!g.stats.length) sl.append(el('li', { class: 'empty' }, T('还在观察你喜欢哪种帮忙～', 'Still learning which kind of help you like~')))
   for (const s of g.stats) {
-    const trend = s.factor >= 1.2 ? '↑ 会更常这样做' : s.factor <= 0.7 ? '↓ 以后少打扰' : '→ 保持'
-    sl.append(el('li', {}, el('span', { class: 'txt' }, s.label), el('span', { class: 'due' }, `接受 ${s.accepted} · 拒绝 ${s.declined} · 没理 ${s.ignored}`), el('span', { class: 'trend' }, trend)))
+    const trend = s.factor >= 1.2 ? T('↑ 会更常这样做', '↑ More often') : s.factor <= 0.7 ? T('↓ 以后少打扰', '↓ Less often') : T('→ 保持', '→ Same')
+    sl.append(el('li', {}, el('span', { class: 'txt' }, s.label), el('span', { class: 'due' }, T(`接受 ${s.accepted} · 拒绝 ${s.declined} · 没理 ${s.ignored}`, `accepted ${s.accepted} · declined ${s.declined} · ignored ${s.ignored}`)), el('span', { class: 'trend' }, trend)))
   }
   const nl = $('#note-list')
   nl.innerHTML = ''
-  if (!g.notes.length) nl.append(el('li', { class: 'empty' }, '整理过记忆后，她会在这里写下学到的东西'))
+  if (!g.notes.length) nl.append(el('li', { class: 'empty' }, T('整理过记忆后，她会在这里写下学到的东西', "After tidying her memories she'll write what she learned here")))
   for (const n of g.notes) nl.append(el('li', {}, el('span', { class: 'txt' }, '🌱 ' + n)))
   const dl = $('#diary-list')
   dl.innerHTML = ''
-  if (!g.diary.length) dl.append(el('li', { class: 'empty' }, '还没有日记'))
+  if (!g.diary.length) dl.append(el('li', { class: 'empty' }, T('还没有日记', 'No diary yet')))
   for (const d of g.diary) dl.append(el('li', {}, el('b', {}, d.date), el('span', { class: 'txt' }, d.text)))
   const ll = $('#learn-list')
   ll.innerHTML = ''
   for (const l of g.learned) ll.append(el('li', { class: 'open' }, '💡 ' + l.topic))
-  $('#reflect-state').textContent = snap.agendaRunning ? `正在：${({ reflect: '整理记忆', brief: '准备简报', pulse: '巡检工作区', tip: '学习' })[snap.agendaRunning] || snap.agendaRunning}…` : g.lastReflectAt ? `上次整理：${fmt(g.lastReflectAt)}` : '还没整理过'
+  $('#reflect-state').textContent = snap.agendaRunning ? T(`正在：${({ reflect: '整理记忆', brief: '准备简报', pulse: '巡检工作区', tip: '学习' })[snap.agendaRunning] || snap.agendaRunning}…`, `Now: ${({ reflect: 'tidying memories', brief: 'preparing the brief', pulse: 'checking the workspace', tip: 'learning' })[snap.agendaRunning] || snap.agendaRunning}…`) : g.lastReflectAt ? T(`上次整理：${fmt(g.lastReflectAt)}`, `Last tidied: ${fmt(g.lastReflectAt)}`) : T('还没整理过', 'Not tidied yet')
   $('#reflect-now').disabled = !!snap.agendaRunning
 }
 
@@ -260,23 +260,23 @@ function renderScreenCapabilities() {
   const summary = $('#screen-capability-summary')
   const reason = $('#screen-capability-reason')
   if (!caps) {
-    summary.textContent = '正在检测屏幕能力…'
+    summary.textContent = T('正在检测屏幕能力…', 'Checking screen capabilities…')
     reason.hidden = true
     return
   }
-  const platform = { win32: 'Windows', darwin: 'macOS', linux: 'Linux' }[caps.platform] || caps.platform || '当前系统'
-  const session = ['aqua', 'win32'].includes(caps.session) ? '' : { x11: 'X11', wayland: 'Wayland', headless: '无图形会话' }[caps.session] || caps.session
-  const state = (value) => value === true ? '可用' : value === false ? '不可用' : '检测中'
+  const platform = { win32: 'Windows', darwin: 'macOS', linux: 'Linux' }[caps.platform] || caps.platform || T('当前系统', 'this system')
+  const session = ['aqua', 'win32'].includes(caps.session) ? '' : { x11: 'X11', wayland: 'Wayland', headless: T('无图形会话', 'no graphical session') }[caps.session] || caps.session
+  const state = (value) => value === true ? T('可用', ' available') : value === false ? T('不可用', ' unavailable') : T('检测中', ' checking')
   const capture = caps.platform === 'darwin' && caps.manualCapture && caps.screenCapture === false
-    ? '手动截图需授权'
-    : `${caps.session === 'wayland' ? '手动选屏' : '手动截图'}${state(caps.manualCapture)}`
-  summary.textContent = [platform, session, capture, `前台窗口${state(caps.foreground)}`, `窗口停靠${state(caps.windows)}`, `OCR ${state(caps.ocr)}`].filter(Boolean).join(' · ')
+    ? T('手动截图需授权', 'Manual capture needs permission')
+    : T(`${caps.session === 'wayland' ? '手动选屏' : '手动截图'}${state(caps.manualCapture)}`, `${caps.session === 'wayland' ? 'Manual screen pick' : 'Manual capture'}${state(caps.manualCapture)}`)
+  summary.textContent = [platform, session, capture, T(`前台窗口${state(caps.foreground)}`, `Foreground window${state(caps.foreground)}`), T(`窗口停靠${state(caps.windows)}`, `Window perching${state(caps.windows)}`), T(`OCR ${state(caps.ocr)}`, `OCR${state(caps.ocr)}`)].filter(Boolean).join(' · ')
   const reasons = [...new Set([caps.reason, caps.ocrReason].filter(Boolean))]
-  reason.textContent = reasons.join('；')
+  reason.textContent = reasons.join(T('；', '; '))
   reason.hidden = !reasons.length
   for (const control of $$('[data-requires]')) {
     control.disabled = caps[control.dataset.requires] === false
-    control.title = control.disabled ? reasons.join('；') || { windows: '需要窗口检测能力', foreground: '需要前台窗口检测能力', manualCapture: '需要可用的图形桌面和截图能力' }[control.dataset.requires] : ''
+    control.title = control.disabled ? reasons.join(T('；', '; ')) || T({ windows: '需要窗口检测能力', foreground: '需要前台窗口检测能力', manualCapture: '需要可用的图形桌面和截图能力' }, { windows: 'Needs window detection', foreground: 'Needs foreground-window detection', manualCapture: 'Needs a graphical desktop and screen capture' })[control.dataset.requires] : ''
   }
   if ($('#prank-select').selectedOptions[0].disabled) $('#prank-select').value = ''
 }
@@ -296,18 +296,18 @@ function renderSettings() {
     if (document.activeElement !== ta) ta.value = (s[ta.dataset.list] || []).join('\n')
   }
   const paused = snap.screenPausedUntil > Date.now()
-  $('#screen-pause').textContent = paused ? '恢复看屏幕' : '1 小时内别看'
-  $('#screen-state').textContent = paused ? `暂停到 ${fmt(snap.screenPausedUntil, false)}` : ''
+  $('#screen-pause').textContent = paused ? T('恢复看屏幕', 'Resume screen looks') : T('1 小时内别看', "Don't look for 1 hour")
+  $('#screen-state').textContent = paused ? T(`暂停到 ${fmt(snap.screenPausedUntil, false)}`, `Paused until ${fmt(snap.screenPausedUntil, false)}`) : ''
   $('#scale-val').textContent = `×${s.scale}`
   $('#backend-status').textContent = snap.backendFound
-    ? `已找到 ${snap.backendName || 'Claude Code'}：${snap.backendPath}`
-    : '未找到 Claude Code。安装后在终端运行 claude 登录，或选择 claude 的路径。'
+    ? T(`已找到 ${snap.backendName || 'Claude Code'}：${snap.backendPath}`, `Found ${snap.backendName || 'Claude Code'}: ${snap.backendPath}`)
+    : T('未找到 Claude Code。安装后在终端运行 claude 登录，或选择 claude 的路径。', 'Claude Code not found. Install it and run claude in a terminal to log in, or choose the path to claude.')
   renderScreenCapabilities()
 }
 
 function render() {
   if (!snap) return
-  $('#status').textContent = snap.busy ? '正在思考…' : snap.backendFound === false ? '未找到内核' : '待命'
+  $('#status').textContent = snap.busy ? T('正在思考…', 'Thinking…') : snap.backendFound === false ? T('未找到内核', 'Core not found') : T('待命', 'Ready')
   $('#status').classList.toggle('busy', snap.busy)
   const MOOD = ['😢', '😟', '😐', '🙂', '😊', '😄', '🥰']
   $('#mood').textContent = `${MOOD[Math.max(0, Math.min(6, (snap.mood || 0) + 3))]} ❤ ${snap.affection || 0}`
@@ -317,14 +317,14 @@ function render() {
   renderTasks()
   renderActivity()
   renderGrowth()
-  $('#weather-state').textContent = snap.weather ? `现在：${snap.weather}` : snap.settings.weatherCity ? '还没拿到天气（检查城市名或网络）' : ''
+  $('#weather-state').textContent = snap.weather ? T(`现在：${snap.weather}`, `Now: ${snap.weather}`) : snap.settings.weatherCity ? T('还没拿到天气（检查城市名或网络）', 'No weather yet (check the city name or network)') : ''
   const u = snap.update || {}
   $('#update-state').textContent =
-    `当前版本 v${snap.version || '?'}` +
-    (u.available ? ` · 🎁 新版本 v${u.available} 可以下载` : u.checkedAt ? (u.error ? ` · 上次检查失败（${u.error}）` : ` · 已是最新（${fmt(u.checkedAt)} 检查）`) : '')
+    T(`当前版本 v${snap.version || '?'}`, `Version v${snap.version || '?'}`) +
+    (u.available ? T(` · 🎁 新版本 v${u.available} 可以下载`, ` · 🎁 v${u.available} available to download`) : u.checkedAt ? (u.error ? T(` · 上次检查失败（${u.error}）`, ` · last check failed (${u.error})`) : T(` · 已是最新（${fmt(u.checkedAt)} 检查）`, ` · up to date (checked ${fmt(u.checkedAt)})`)) : '')
   renderSettings()
   refreshStocks()
-  $('#note-post').textContent = snap.noteOpen ? '📌 便签已贴出' : '📌 贴到桌面'
+  $('#note-post').textContent = snap.noteOpen ? T('📌 便签已贴出', '📌 Note is up') : T('📌 贴到桌面', '📌 Put on desktop')
 }
 
 pet.on('state', (s) => {
@@ -420,7 +420,7 @@ $('#mem-form').addEventListener('submit', async (e) => {
   if (m) input.value = ''
   else {
     // Keep the text so it can be shortened; say why it was not saved.
-    input.setCustomValidity('没记住：一条最多 200 字，或者她已经记得这件事了')
+    input.setCustomValidity(T('没记住：一条最多 200 字，或者她已经记得这件事了', "Not saved: at most 200 characters each, or she already remembers it"))
     input.reportValidity()
     setTimeout(() => input.setCustomValidity(''), 2500)
   }
@@ -453,7 +453,7 @@ $('#look-now').addEventListener('click', () => pet.invoke('look:now'))
 $('#screen-refresh').addEventListener('click', async () => {
   const button = $('#screen-refresh')
   button.disabled = true
-  button.textContent = '检测中…'
+  button.textContent = T('检测中…', 'Checking…')
   try {
     const capabilities = await pet.invoke('screen:refresh')
     if (capabilities && snap) {
@@ -461,11 +461,11 @@ $('#screen-refresh').addEventListener('click', async () => {
       renderScreenCapabilities()
     }
   } catch (e) {
-    $('#screen-capability-reason').textContent = `重新检测失败：${e.message || e}`
+    $('#screen-capability-reason').textContent = T(`重新检测失败：${e.message || e}`, `Re-check failed: ${e.message || e}`)
     $('#screen-capability-reason').hidden = false
   } finally {
     button.disabled = false
-    button.textContent = '重新检测'
+    button.textContent = T('重新检测', 'Re-check')
   }
 })
 $('#screen-pause').addEventListener('click', () => pet.invoke('screen:pause', snap && snap.screenPausedUntil > Date.now() ? 0 : 60))
@@ -510,8 +510,8 @@ function sparkline(values, w = 76, h = 26) {
 }
 
 function trendTag(t) {
-  if (t.label === 'unknown') return '历史不足 2 年'
-  return `${{ strong: '长期强势上涨', up: '长期上涨', flat: '长期横盘', down: '长期下跌' }[t.label]} ${signed(t.annual, 0)}/年`
+  if (t.label === 'unknown') return T('历史不足 2 年', 'Under 2 years of history')
+  return T(`${{ strong: '长期强势上涨', up: '长期上涨', flat: '长期横盘', down: '长期下跌' }[t.label]} ${signed(t.annual, 0)}/年`, `${{ strong: 'Strong long-term uptrend', up: 'Long-term uptrend', flat: 'Flat long-term', down: 'Long-term downtrend' }[t.label]} ${signed(t.annual, 0)}/yr`)
 }
 
 function stockRow(item) {
@@ -519,12 +519,12 @@ function stockRow(item) {
   const li = el('li', { tabindex: '0', role: 'button', 'data-sym': item.symbol, 'aria-label': `${item.symbol} ${item.name}`, onclick: pick, onkeydown: (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), pick()) })
   if (item.symbol === stockSel) li.classList.add('sel')
   const tags = el('div', { class: 'tags' }, el('span', { class: 'tag' }, trendTag(item.trend)))
-  if (item.rapid) tags.append(el('span', { class: 'tag' + (item.dip ? ' hot' : '') }, `▼ 比 1 个月高点 ${signed(item.dd1m)}`))
-  if (item.watched) tags.append(el('span', { class: 'tag' }, '自选'))
-  if (item.stale) tags.append(el('span', { class: 'tag' }, '旧数据'))
+  if (item.rapid) tags.append(el('span', { class: 'tag' + (item.dip ? ' hot' : '') }, T(`▼ 比 1 个月高点 ${signed(item.dd1m)}`, `▼ ${signed(item.dd1m)} vs 1M high`)))
+  if (item.watched) tags.append(el('span', { class: 'tag' }, T('自选', 'Mine')))
+  if (item.stale) tags.append(el('span', { class: 'tag' }, T('旧数据', 'Stale')))
   const left = el('div', { class: 'sym' }, el('b', {}, item.symbol), el('span', { class: 'nm' }, item.name), tags)
   const m1 = item.windows.m1
-  const right = el('div', { class: 'q' }, el('b', {}, money(item.price)), m1 ? el('small', { class: dir(m1.change) }, `1 个月 ${arrow(m1.change)} ${signed(m1.change)}`) : null)
+  const right = el('div', { class: 'q' }, el('b', {}, money(item.price)), m1 ? el('small', { class: dir(m1.change) }, T(`1 个月 ${arrow(m1.change)} ${signed(m1.change)}`, `1M ${arrow(m1.change)} ${signed(m1.change)}`)) : null)
   li.append(left, sparkline(item.spark), right)
   return li
 }
@@ -534,14 +534,14 @@ function renderStockStatus() {
   if (!st) return
   const s = snap.settings
   $('#tab-stocks').classList.toggle('green-up', s.stockColors === 'green-up')
-  const auto = s.stockAuto === false ? '自动查看已关闭' : st.next ? `下次 ${fmt(st.next.at)}（美东 ${st.next.et}）` : ''
+  const auto = s.stockAuto === false ? T('自动查看已关闭', 'Auto checks off') : st.next ? T(`下次 ${fmt(st.next.at)}（美东 ${st.next.et}）`, `Next ${fmt(st.next.at)} (ET ${st.next.et})`) : ''
   $('#stock-status').textContent = st.scanning
-    ? `正在看第 ${st.done}/${st.total} 只…`
-    : [st.scannedAt ? `上次 ${fmt(st.scannedAt)}，${st.count} 只里 ${st.dips} 只长期上涨又急跌` : '还没看过', auto].filter(Boolean).join(' · ')
+    ? T(`正在看第 ${st.done}/${st.total} 只…`, `Checking ${st.done}/${st.total}…`)
+    : [st.scannedAt ? T(`上次 ${fmt(st.scannedAt)}，${st.count} 只里 ${st.dips} 只长期上涨又急跌`, `Last ${fmt(st.scannedAt)}: ${st.dips} of ${st.count} are long-term risers with a sharp drop`) : T('还没看过', 'Not checked yet'), auto].filter(Boolean).join(' · ')
   $('#stock-scan').disabled = st.scanning
-  $('#stock-scan').textContent = st.scanning ? '查看中…' : '立即查看'
+  $('#stock-scan').textContent = st.scanning ? T('查看中…', 'Checking…') : T('立即查看', 'Check now')
   const local = (st.localAt || []).filter(Boolean).map((t) => fmt(t, false))
-  $('#stock-local-times').textContent = local.length ? `换算成你这里的时间：${local.join('、')}（美东夏令时切换时会变）。只在美股交易日（周一到周五）查看。` : ''
+  $('#stock-local-times').textContent = local.length ? T(`换算成你这里的时间：${local.join('、')}（美东夏令时切换时会变）。只在美股交易日（周一到周五）查看。`, `In your time: ${local.join(', ')} (shifts when US daylight saving changes). Only on US trading days (Mon–Fri).`) : ''
 }
 
 async function refreshStocks(force = false) {
@@ -565,17 +565,17 @@ async function refreshStocks(force = false) {
 function renderStockLists() {
   const items = (stockData && stockData.items) || []
   const drop = Number(snap.settings.stockDropPct) || 10
-  $('#stock-dip-note').textContent = `近 5 年年化 ≥7% 且走势稳定，最近比 1 个月高点跌 ≥${drop}%（或 5 天跌 ≥${Math.round(drop * 0.7)}%）`
+  $('#stock-dip-note').textContent = T(`近 5 年年化 ≥7% 且走势稳定，最近比 1 个月高点跌 ≥${drop}%（或 5 天跌 ≥${Math.round(drop * 0.7)}%）`, `≥ 7% a year over 5 years with a steady trend, now ≥ ${drop}% below the 1-month high (or ≥ ${Math.round(drop * 0.7)}% down in 5 days)`)
   const dips = items.filter((x) => x.dip)
-  $('#stock-dips').replaceChildren(...(dips.length ? dips.map(stockRow) : [el('li', { class: 'empty' }, items.length ? '现在没有长期上涨又最近急跌的。' : '还没有数据，点「立即查看」。')]))
+  $('#stock-dips').replaceChildren(...(dips.length ? dips.map(stockRow) : [el('li', { class: 'empty' }, items.length ? T('现在没有长期上涨又最近急跌的。', 'No long-term risers with a sharp recent drop right now.') : T('还没有数据，点「立即查看」。', 'No data yet. Click "Check now".'))]))
   const q = $('#stock-filter').value.trim().toUpperCase()
   const shown = items.filter((x) => !q || x.symbol.includes(q) || String(x.name).toUpperCase().includes(q))
   $('#stock-all').replaceChildren(...shown.map(stockRow))
   const errors = (stockData && stockData.errors) || []
   const invalid = (stockData && stockData.invalid) || []
   $('#stock-errors').textContent = [
-    invalid.length ? `这些不是有效的美股代码：${invalid.join('、')}` : '',
-    errors.length ? `跳过了 ${errors.length} 只：${errors.slice(0, 8).map((e) => `${e.symbol}（${e.error}）`).join('；')}${errors.length > 8 ? '…' : ''}` : '',
+    invalid.length ? T(`这些不是有效的美股代码：${invalid.join('、')}`, `These aren't valid US tickers: ${invalid.join(', ')}`) : '',
+    errors.length ? T(`跳过了 ${errors.length} 只：${errors.slice(0, 8).map((e) => `${e.symbol}（${e.error}）`).join('；')}${errors.length > 8 ? '…' : ''}`, `Skipped ${errors.length}: ${errors.slice(0, 8).map((e) => `${e.symbol} (${e.error})`).join('; ')}${errors.length > 8 ? '…' : ''}`) : '',
   ].filter(Boolean).join('\n')
 }
 
@@ -589,9 +589,9 @@ async function selectStock(symbol, { quiet = false } = {}) {
   $('#sd-name').textContent = `${item.name} · ${item.exchange}`
   $('#sd-price').textContent = money(item.price)
   const tags = [el('span', { class: 'tag' }, trendTag(item.trend))]
-  if (item.rapid) tags.push(el('span', { class: 'tag' + (item.dip ? ' hot' : '') }, `▼ 比 1 个月高点 ${signed(item.dd1m)}`))
-  if (item.level) tags.push(el('span', { class: 'tag' }, `价位：${item.level}`))
-  tags.push(el('span', { class: 'muted' }, ` 截至 ${fmt(item.at)}`))
+  if (item.rapid) tags.push(el('span', { class: 'tag' + (item.dip ? ' hot' : '') }, T(`▼ 比 1 个月高点 ${signed(item.dd1m)}`, `▼ ${signed(item.dd1m)} vs 1M high`)))
+  if (item.level) tags.push(el('span', { class: 'tag' }, T(`价位：${item.level}`, `Level: ${item.level.replace(/^a /, '')}`)))
+  tags.push(el('span', { class: 'muted' }, T(` 截至 ${fmt(item.at)}`, ` as of ${fmt(item.at)}`)))
   $('#sd-tags').replaceChildren(...tags)
   $('#sd-trend').textContent = item.text.trend
   $('#sd-drop').textContent = item.text.drop
@@ -604,7 +604,7 @@ async function selectStock(symbol, { quiet = false } = {}) {
 
 function rangeBar(w) {
   const span = w.high - w.low || 1
-  const bar = el('div', { class: 'rbar', role: 'img', 'aria-label': `区间 ${money(w.low)} 到 ${money(w.high)}，均价 ${money(w.avg)}，现价在 ${Math.round(w.pos * 100)}% 位置` })
+  const bar = el('div', { class: 'rbar', role: 'img', 'aria-label': T(`区间 ${money(w.low)} 到 ${money(w.high)}，均价 ${money(w.avg)}，现价在 ${Math.round(w.pos * 100)}% 位置`, `Range ${money(w.low)} to ${money(w.high)}, average ${money(w.avg)}, price at ${Math.round(w.pos * 100)}%`) })
   bar.append(el('i', { class: 'avg', style: `left:${(((w.avg - w.low) / span) * 100).toFixed(1)}%` }), el('i', { class: 'now', style: `left:${(w.pos * 100).toFixed(1)}%` }))
   return bar
 }
@@ -650,7 +650,7 @@ function dateTicks(t0, t1, range) {
     d.setMonth(d.getMonth() + 1)
     for (let k = 0; d.getTime() <= t1; d.setMonth(d.getMonth() + 1), k++) {
       if (k % every) continue
-      out.push({ t: d.getTime(), label: d.getMonth() === 0 ? String(d.getFullYear()) : `${d.getMonth() + 1}月` })
+      out.push({ t: d.getTime(), label: d.getMonth() === 0 ? String(d.getFullYear()) : T(`${d.getMonth() + 1}月`, d.toLocaleString('en', { month: 'short' })) })
     }
   }
   return out
@@ -660,7 +660,7 @@ function renderStockChart() {
   const box = $('#sd-chart')
   for (const b of $$('.seg button')) b.classList.toggle('on', b.dataset.range === stockRange)
   if (!stockSeries || !stockSeries.points || stockSeries.points.length < 2) {
-    box.replaceChildren(el('p', { class: 'empty' }, '没有价格数据'))
+    box.replaceChildren(el('p', { class: 'empty' }, T('没有价格数据', 'No price data')))
     $('#sd-legend').replaceChildren()
     return
   }
@@ -680,13 +680,13 @@ function renderStockChart() {
   if (i0 < 0) i0 = 0
   const pts = all.slice(i0).map((p, k) => ({ ...p, ma: ma[i0 + k], tr: fit && p.t >= fit.t0 ? Math.exp(fit.a + (fit.b * (p.t - fit.t0)) / YEAR_MS) : null }))
   const series = [
-    { key: 'c', name: '收盘价', end: '', color: 'var(--s-price)' },
-    { key: 'ma', name: '200 日均线', end: '200 日均线', color: 'var(--s-ma)' },
-    { key: 'tr', name: '5 年趋势线', end: '趋势线', color: 'var(--s-trend)' },
+    { key: 'c', name: T('收盘价', 'Close'), end: '', color: 'var(--s-price)' },
+    { key: 'ma', name: T('200 日均线', '200-day avg'), end: T('200 日均线', '200-day avg'), color: 'var(--s-ma)' },
+    { key: 'tr', name: T('5 年趋势线', '5-year trend'), end: T('趋势线', 'Trend'), color: 'var(--s-trend)' },
   ].filter((se) => pts.some((p) => p[se.key] != null))
 
   const W = Math.max(280, box.clientWidth || 430)
-  const H = 214, L = 46, R = 70, T = 12, B = 24
+  const H = 214, L = 46, R = 70, TOP = 12, B = 24
   const vals = pts.flatMap((p) => series.map((se) => p[se.key])).filter((v) => v != null)
   let lo = Math.min(...vals)
   let hi = Math.max(...vals)
@@ -695,8 +695,8 @@ function renderStockChart() {
   hi += padv
   const t0 = pts[0].t
   const x = (t) => L + ((t - t0) / (lastT - t0 || 1)) * (W - L - R)
-  const y = (v) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B)
-  const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', 'aria-label': `${stockSeries.symbol} 收盘价走势，${{ '1m': '近 1 个月', '6m': '近半年', '1y': '近 1 年', '5y': '近 5 年' }[stockRange]}` })
+  const y = (v) => TOP + (1 - (v - lo) / (hi - lo)) * (H - TOP - B)
+  const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', 'aria-label': T(`${stockSeries.symbol} 收盘价走势，${{ '1m': '近 1 个月', '6m': '近半年', '1y': '近 1 年', '5y': '近 5 年' }[stockRange]}`, `${stockSeries.symbol} closing prices, ${{ '1m': 'past month', '6m': 'past 6 months', '1y': 'past year', '5y': 'past 5 years' }[stockRange]}`) })
   for (const v of niceTicks(lo, hi, 4)) {
     s.append(svg('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), stroke: 'var(--s-grid)', 'stroke-width': 1 }))
     s.append(svgText({ x: L - 6, y: y(v) + 3.5, 'text-anchor': 'end', class: 'ax' }, tickLabel(v)))
@@ -728,16 +728,16 @@ function renderStockChart() {
   for (const se of series) {
     const v = last[se.key]
     if (v == null) continue
-    const yy = Math.min(H - B - 4, Math.max(T + 4, y(v)))
+    const yy = Math.min(H - B - 4, Math.max(TOP + 4, y(v)))
     if (used.some((u) => Math.abs(u - yy) < 13)) continue
     used.push(yy)
     s.append(svgText({ x: W - R + 8, y: yy + 3.5, class: se.key === 'c' ? 'endv' : 'endl' }, se.key === 'c' ? money(v) : se.end))
   }
   s.append(svg('circle', { cx: x(lastT), cy: y(last.c), r: 4, fill: 'var(--s-price)', stroke: 'var(--s-surface)', 'stroke-width': 2 }))
   // Hover / keyboard: a crosshair snaps to the nearest trading day; the tooltip lists every line.
-  const cross = svg('line', { y1: T, y2: H - B, stroke: 'var(--s-axis)', 'stroke-width': 1, visibility: 'hidden' })
+  const cross = svg('line', { y1: TOP, y2: H - B, stroke: 'var(--s-axis)', 'stroke-width': 1, visibility: 'hidden' })
   const dot = svg('circle', { r: 4, fill: 'var(--s-price)', stroke: 'var(--s-surface)', 'stroke-width': 2, visibility: 'hidden' })
-  const hit = svg('rect', { x: L, y: 0, width: W - L - R + 8, height: H - B, fill: 'transparent', tabindex: 0, 'aria-label': '用左右方向键逐日查看' })
+  const hit = svg('rect', { x: L, y: 0, width: W - L - R + 8, height: H - B, fill: 'transparent', tabindex: 0, 'aria-label': T('用左右方向键逐日查看', 'Use the left and right arrow keys to step through days') })
   s.append(cross, dot, hit)
   const tip = el('div', { class: 'tip', hidden: '' })
   let at = pts.length - 1

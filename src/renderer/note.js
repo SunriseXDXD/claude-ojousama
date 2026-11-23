@@ -23,7 +23,7 @@ function renderTodos(data, writing) {
   todos = data.todos || []
   $('pin').classList.toggle('off', !data.pinned)
   const d = new Date()
-  $('date').textContent = `${d.getMonth() + 1}月${d.getDate()}日`
+  $('date').textContent = T(`${d.getMonth() + 1}月${d.getDate()}日`, d.toLocaleDateString('en', { month: 'short', day: 'numeric' }))
   const now = Date.now()
   const today = d.toDateString()
   const open = todos.filter((t) => !t.done).sort((a, b) => (a.due || 9e15) - (b.due || 9e15))
@@ -34,7 +34,7 @@ function renderTodos(data, writing) {
   if (!items.length) {
     const li = document.createElement('li')
     li.className = 'empty'
-    li.textContent = '今天没有待办。……难得，好好休息吧。'
+    li.textContent = T('今天没有待办。……难得，好好休息吧。', 'No to-dos today. …How rare. Get some proper rest.')
     list.append(li)
   }
   items.forEach((t, i) => {
@@ -42,7 +42,7 @@ function renderTodos(data, writing) {
     if (t.done) li.classList.add('done')
     const box = document.createElement('span')
     box.className = 'box'
-    box.title = t.done ? '标记为未完成' : '完成！'
+    box.title = t.done ? T('标记为未完成', 'Mark as not done') : T('完成！', 'Done!')
     box.addEventListener('click', () => pet.invoke('note:toggle', { id: t.id, done: !t.done }))
     const txt = document.createElement('span')
     txt.className = 'txt'
@@ -83,7 +83,7 @@ async function init() {
     $('memo-view').classList.remove('hidden')
     $('memo-text').textContent = data.text || ''
     $('paper').addEventListener('click', () => pet.send('note:close'))
-    $('paper').title = '点一下撕掉'
+    $('paper').title = T('点一下撕掉', 'Click to tear it off')
     return
   }
   $('todo-view').classList.remove('hidden')

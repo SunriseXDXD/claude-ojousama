@@ -6,6 +6,7 @@ const SEND = [
   'pet:rects',
   'pet:drag-start',
   'pet:drag-end',
+  'pet:drag-alive',
   'pet:click',
   'pet:context-menu',
   'pet:input-state',
@@ -74,7 +75,13 @@ const INVOKE = [
 ]
 const ON = ['pet:cmd', 'state', 'panel:tab', 'note:state', 'board:state']
 
+let lang = 'zh'
+try {
+  lang = ipcRenderer.sendSync('i18n:lang') === 'en' ? 'en' : 'zh'
+} catch {}
+
 contextBridge.exposeInMainWorld('pet', {
+  lang,
   send(channel, data) {
     if (SEND.includes(channel)) ipcRenderer.send(channel, data)
   },

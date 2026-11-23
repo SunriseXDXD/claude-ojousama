@@ -91,8 +91,8 @@ function diffHtml(d) {
   }
   return (
     `<section class="diff"><div class="file"><span class="path" title="${esc(d.file)}">&lrm;${esc(d.name || d.file)}</span>` +
-    `${d.created ? '<span class="badge">新文件</span>' : ''}<span class="plus">+${d.add}</span><span class="minus">−${d.del}</span></div>` +
-    `<div class="scroll"><table>${rows.join('')}</table></div>${d.cut ? `<div class="cut">…还有 ${d.cut} 行没有显示</div>` : ''}</section>`
+    `${d.created ? T('<span class="badge">新文件</span>', '<span class="badge">new file</span>') : ''}<span class="plus">+${d.add}</span><span class="minus">−${d.del}</span></div>` +
+    `<div class="scroll"><table>${rows.join('')}</table></div>${d.cut ? T(`<div class="cut">…还有 ${d.cut} 行没有显示</div>`, `<div class="cut">…${d.cut} more lines not shown</div>`) : ''}</section>`
   )
 }
 
@@ -123,17 +123,17 @@ function render(s) {
   const del = diffs.reduce((n, d) => n + d.del, 0)
   body.innerHTML =
     texts.map((x) => `<div class="md">${markdown(x.text)}</div>`).join('') +
-    (diffs.length ? `<h4 class="changes">改了 ${diffs.length} 个文件 <span class="muted">+${add} −${del}</span></h4>${diffs.map(diffHtml).join('')}` : '')
+    (diffs.length ? T(`<h4 class="changes">改了 ${diffs.length} 个文件 <span class="muted">+${add} −${del}</span></h4>${diffs.map(diffHtml).join('')}`, `<h4 class="changes">Changed ${diffs.length} file(s) <span class="muted">+${add} −${del}</span></h4>${diffs.map(diffHtml).join('')}`) : '')
   // Streamed writing follows the chalk; otherwise keep the reader's place (a new entry starts at the top).
   body.scrollTop = same ? (e.live && nearEnd ? body.scrollHeight : top) : 0
   shownId = e.id
-  $('#title').textContent = e.title || '黑板'
+  $('#title').textContent = e.title || T('黑板', 'Blackboard')
   $('#count').textContent = s.total > 1 ? `${s.index + 1}/${s.total}` : ''
   $('#prev').disabled = s.index <= 0
   $('#next').disabled = s.index >= s.total - 1
   $('#prev').hidden = $('#next').hidden = s.total < 2
   $('#pin').setAttribute('aria-pressed', String(!!s.pinned))
-  $('#hint').textContent = e.live ? '✍️ 正在写…' : s.pinned ? '已钉住' : ''
+  $('#hint').textContent = e.live ? T('✍️ 正在写…', '✍️ Writing…') : s.pinned ? T('已钉住', 'Pinned') : ''
 }
 
 pet.on('board:state', render)
@@ -143,8 +143,8 @@ $('#close').addEventListener('click', () => pet.send('board:close'))
 $('#pin').addEventListener('click', () => pet.send('board:pin', !(state && state.pinned)))
 $('#copy').addEventListener('click', async () => {
   await pet.invoke('board:copy')
-  $('#copy').textContent = '已复制'
-  setTimeout(() => ($('#copy').textContent = '复制'), 1500)
+  $('#copy').textContent = T('已复制', 'Copied')
+  setTimeout(() => ($('#copy').textContent = T('复制', 'Copy')), 1500)
 })
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') pet.send('board:close')

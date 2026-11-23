@@ -7,6 +7,7 @@
 // Talking is rate-limited per autonomy level and backs off when she keeps being ignored.
 const senses = require('./senses')
 const { LINES, pick } = require('./persona')
+const { T } = require('./i18n')
 
 const SEC = 1000
 const MIN = 60 * SEC
@@ -183,8 +184,8 @@ class Brain {
         // Three in a row without a reply: talk half as often for an hour.
         this.ignoredRow = 0
         this.backoffUntil = Date.now() + 60 * MIN
-        this.pet.changeMood(-1, '一直没人理')
-        this.pet.logActivity('look', '连续几次没人理我，接下来一小时少说点话')
+        this.pet.changeMood(-1, T('一直没人理', 'ignored for a while'))
+        this.pet.logActivity('look', T('连续几次没人理我，接下来一小时少说点话', 'Ignored several times in a row; talking less for the next hour'))
       }
     } else this.ignoredRow = 0
   }
@@ -202,7 +203,7 @@ class Brain {
     if (want !== this.hidden) {
       this.hidden = want
       pet.setHidden(want)
-      if (want) pet.logActivity('look', `${info.process} 全屏了，我先躲起来`)
+      if (want) pet.logActivity('look', T(`${info.process} 全屏了，我先躲起来`, `${info.process} went full screen; hiding for now`))
     }
   }
 
@@ -222,8 +223,8 @@ class Brain {
       this.quiet = want
       if (want) {
         pet.once('shush', 2) // no bubble: the screen may be shared
-        pet.logActivity('look', '你在开会，我先安静')
-      } else pet.logActivity('look', '会开完了')
+        pet.logActivity('look', T('你在开会，我先安静', "You're in a meeting; staying quiet"))
+      } else pet.logActivity('look', T('会开完了', 'Meeting over'))
     }
   }
 
@@ -251,18 +252,18 @@ class Brain {
     this.noteSpoke()
     const again = now - last < 15 * MIN // caught twice in a row: she gets properly cross
     pet.once(again ? 'angry' : 'sulk', 2)
-    pet.logActivity('look', `专注时间看到「${hit}」，提醒了一下${again ? '（第二次）' : ''}`)
+    pet.logActivity('look', T(`专注时间看到「${hit}」，提醒了一下${again ? '（第二次）' : ''}`, `Saw "${hit}" during focus time; nudged you${again ? ' (second time)' : ''}`))
     pet
-      .say(again ? `又是「${hit}」？番茄钟还没结束，给我回去！` : `说好的专注呢？「${hit}」先放一放。`, {
+      .say(again ? T(`又是「${hit}」？番茄钟还没结束，给我回去！`, `"${hit}" again? The pomodoro isn't over — get back to work!`) : T(`说好的专注呢？「${hit}」先放一放。`, `Weren't you focusing? Put "${hit}" aside for now.`), {
         ttl: 15000,
         buttons: [
-          { id: 'back', label: '马上回去' },
-          { id: 'rest', label: '我想休息' },
+          { id: 'back', label: T('马上回去', 'Going back') },
+          { id: 'rest', label: T('我想休息', 'I need a break') },
         ],
       })
       .then((c) => {
         if (c === 'rest') pet.restNow()
-        if (c === 'back') pet.changeMood(+1, '听话回去专注')
+        if (c === 'back') pet.changeMood(+1, T('听话回去专注', 'went back to focusing'))
         if (c !== pet.REPLACED) pet.recordHelp('focus', c ? 'accepted' : 'ignored')
       })
     return true
@@ -278,13 +279,13 @@ class Brain {
     this.noteSpoke()
     const mins = Math.round((now - s.since) / MIN)
     pet.once('stretch', 3)
-    pet.logActivity('look', `你已经连续用 ${s.proc} ${mins} 分钟了，提醒休息`)
+    pet.logActivity('look', T(`你已经连续用 ${s.proc} ${mins} 分钟了，提醒休息`, `You've used ${s.proc} for ${mins} min straight; suggested a break`))
     pet
-      .say(`已经连续用 ${pet.appName(s.proc)} ${mins} 分钟了。起来伸个懒腰——才不是担心你。`, {
+      .say(T(`已经连续用 ${pet.appName(s.proc)} ${mins} 分钟了。起来伸个懒腰——才不是担心你。`, `${mins} minutes straight in ${pet.appName(s.proc)}. Get up and stretch — not that I'm worried about you.`), {
         ttl: 20000,
         buttons: [
-          { id: 'rest', label: '休息 5 分钟' },
-          { id: 'no', label: '再干会儿' },
+          { id: 'rest', label: T('休息 5 分钟', 'Rest 5 min') },
+          { id: 'no', label: T('再干会儿', 'A bit longer') },
         ],
       })
       .then((c) => {
@@ -322,7 +323,7 @@ class Brain {
     if (now - this.lastSongSaid > 20 * MIN && Math.random() < 0.6 && this.canSpeak()) {
       this.lastSongSaid = now
       this.noteSpoke()
-      pet.say(`在听《${song}》？……品味还行，本小姐也跟着晃一下♪`, { ttl: 5000 })
+      pet.say(T(`在听《${song}》？……品味还行，本小姐也跟着晃一下♪`, `Listening to "${song}"? …Decent taste. I'll sway along a little ♪`), { ttl: 5000 })
     }
     return true
   }
