@@ -279,6 +279,7 @@ function renderScreenCapabilities() {
     control.title = control.disabled ? reasons.join(T('；', '; ')) || T({ windows: '需要窗口检测能力', foreground: '需要前台窗口检测能力', manualCapture: '需要可用的图形桌面和截图能力' }, { windows: 'Needs window detection', foreground: 'Needs foreground-window detection', manualCapture: 'Needs a graphical desktop and screen capture' })[control.dataset.requires] : ''
   }
   if ($('#prank-select').selectedOptions[0].disabled) $('#prank-select').value = ''
+  $('#screen-permission').hidden = !(caps.platform === 'darwin' && caps.screenCapture === false)
 }
 
 function renderSettings() {
@@ -450,6 +451,7 @@ $('#prank-run').addEventListener('click', () => {
   else pet.invoke('prank', v || undefined)
 })
 $('#look-now').addEventListener('click', () => pet.invoke('look:now'))
+$('#screen-permission').addEventListener('click', () => pet.invoke('screen:permission'))
 $('#screen-refresh').addEventListener('click', async () => {
   const button = $('#screen-refresh')
   button.disabled = true

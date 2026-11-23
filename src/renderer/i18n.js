@@ -150,6 +150,7 @@ const EN = {
   自主与读屏: 'Autonomy & screen',
   '正在检测屏幕能力…': 'Checking screen capabilities…',
   重新检测: 'Re-check',
+  打开屏幕录制权限: 'Allow screen recording',
   自主程度: 'Autonomy',
   '积极：常看看你在做什么，主动帮忙（每小时看屏 ≤12 次、开口 ≤8 次）': 'Active: looks often, offers help (≤12 looks, ≤8 remarks/h)',
   '适中：偶尔看看，有事才说（每小时看屏 ≤5 次、开口 ≤4 次）': 'Moderate: looks now and then (≤5 looks, ≤4 remarks/h)',

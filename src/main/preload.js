@@ -60,6 +60,7 @@ const INVOKE = [
   'memory:remove',
   'activity:clear',
   'look:now',
+  'screen:permission',
   'screen:pause',
   'screen:refresh',
   'climb:now',

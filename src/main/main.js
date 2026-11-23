@@ -14,6 +14,8 @@ const {
   dialog,
   powerMonitor,
   session,
+  systemPreferences,
+  desktopCapturer,
 } = require('electron')
 const fs = require('fs')
 const fsp = fs.promises
@@ -173,6 +175,9 @@ function createPetWindow() {
     skipTaskbar: DESKTOP.floating,
     alwaysOnTop: DESKTOP.floating,
     hasShadow: false,
+    // Her window is much taller than she is (room for the bubble): without this, macOS keeps the window
+    // below the menu bar, so she could never be carried into the top part of the screen.
+    enableLargerThanScreen: true,
     show: false,
     backgroundColor: '#00000000',
     icon: path.join(ASSETS, 'icon.png'),
@@ -1905,9 +1910,41 @@ function userWindow(info) {
   return last && Date.now() - last.at < 120000 ? last.info : null
 }
 
+const SCREEN_PERMISSION_URL = 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'
+const screenPermissionMissing = () =>
+  process.platform === 'darwin' && !!systemPreferences && systemPreferences.getMediaAccessStatus('screen') !== 'granted'
+
+/**
+ * macOS: get screen recording allowed. Asking for a screen source puts the app in the system's list (and
+ * shows the system prompt the first time); then the right page of System Settings opens. On its own
+ * (`auto`) at most once a week, and never when screen looks are turned off.
+ */
+async function requestScreenPermission({ auto = false } = {}) {
+  if (!screenPermissionMissing()) return false
+  if (auto && (rule('screen') === 'off' || Date.now() - (store.get('pet').screenPermAskedAt || 0) < 7 * 864e5)) return false
+  store.patch('pet', { screenPermAskedAt: Date.now() })
+  logActivity('look', T('打开了系统设置里的屏幕录制权限', 'Opened the screen recording permission in System Settings'))
+  if (desktopCapturer) await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1, height: 1 } }).catch(() => null)
+  await shell.openExternal(SCREEN_PERMISSION_URL).catch((e) => console.warn('[screen permission]', e.message))
+  once('point', 2)
+  const c = await say(
+    T(
+      '本小姐帮你打开了「系统设置 → 隐私与安全性 → 屏幕与系统音频录制」。把 Claude Ojousama 打开，再重启本小姐就能看屏幕了。……才不是很想看。',
+      "I opened System Settings → Privacy & Security → Screen & System Audio Recording for you. Turn on Claude Ojousama there, then restart me so I can see the screen. …Not that I'm dying to look.",
+    ),
+    { ttl: 60000, buttons: [{ id: 'restart', label: T('已打开，重启', 'Done, restart') }, { id: 'later', label: T('以后再说', 'Later') }] },
+  )
+  if (c === 'restart') {
+    app.relaunch()
+    app.exit(0)
+  }
+  return true
+}
+
 /** Menu: "看看我在干嘛". */
 async function lookNow() {
   if (rule('screen') === 'off' || Date.now() < (store.get('pet').screenPauseUntil || 0)) return say(T('看屏幕关着或者暂停了。要本小姐看，就去设置里恢复。', 'Screen looks are off or paused. If you want me to look, turn them back on in Settings.'), { ttl: 4000 })
+  if (screenPermissionMissing()) return void (await requestScreenPermission())
   const caps = await refreshScreenCapabilities()
   let info = caps.foreground ? userWindow(await screenSense.foreground().catch(() => null)) : null
   let manualImage
@@ -2065,6 +2102,8 @@ const sitDrop = () => (MANIFEST.sit && MANIFEST.sit.sink ? Math.round(MANIFEST.s
 const standY = (top) => Math.round(top - petSize()[1]) // feet on the edge
 const sitY = (top) => Math.round(top - petSize()[1] + sitDrop()) // legs hanging over it
 const rnd = (a, b) => a + Math.random() * (b - a)
+/** A window edge at `top` is a seat when her head stays below the top of the work area (the menu bar) and it is not at the very bottom. */
+const seatTopOk = (top, wa) => top - Math.round((MANIFEST.sit.h - (MANIFEST.sit.sink || 0)) * S().scale) >= wa.y && top <= wa.y + wa.height - 80
 
 /** Remove [a, b] from a list of [x0, x1] spans. */
 function cutSpans(spans, a, b) {
@@ -2097,7 +2136,7 @@ async function findSeats({ exclude } = {}) {
     if (screen.getDisplayMatching(b).id !== disp.id) return
     if (b.x <= db.x + 1 && b.y <= db.y + 1 && b.x + b.width >= db.x + db.width - 1) return // (nearly) fullscreen
     const top = b.y
-    if (sitY(top) < wa.y || top < wa.y + 100 || top > wa.y + wa.height - 80) return
+    if (!seatTopOk(top, wa)) return
     // Only the part of the edge that is not covered by windows in front of it.
     let spans = [[Math.max(b.x, wa.x) + 36, Math.min(b.x + b.width, wa.x + wa.width) - 36]]
     for (const above of wins.slice(0, z)) {
@@ -2165,9 +2204,38 @@ async function climbTo(seat, cx) {
 function startPerch(seat, ms) {
   if (state.dragging) return false
   hold('sit')
-  state.perch = { kind: 'window', hwnd: seat.win.hwnd, bounds: { ...seat.win.bounds }, top: seat.top, x0: seat.x0, x1: seat.x1, until: Date.now() + ms, nextStroll: Date.now() + rnd(15, 40) * 1000, ticks: 0 }
+  state.perch = { kind: 'window', hwnd: seat.win.hwnd, bounds: { ...seat.win.bounds }, top: seat.top, x0: seat.x0, x1: seat.x1, until: Date.now() + ms, nextStroll: Date.now() + rnd(15, 40) * 1000, nextCheck: Date.now() + 4000, fast: false }
+  perchRate(PERCH_SLOW_MS)
+}
+
+// How often she checks her seat: once a second normally, many times a second while it is being moved.
+const PERCH_SLOW_MS = 1000
+const PERCH_FAST_MS = 50
+function perchRate(ms) {
   clearInterval(state.perchTimer)
-  state.perchTimer = setInterval(perchTick, 1000)
+  state.perchTimer = setInterval(perchTick, ms)
+}
+
+/**
+ * Her window moved or changed size under her: ride along, keeping her place on the edge. False when
+ * the new edge is no place to sit (pushed off the top or bottom of the screen): then she falls.
+ */
+function followSeat(p, b) {
+  if (!petWin || state.dragging) return true
+  const wa = screen.getDisplayMatching(b).workArea
+  if (!seatTopOk(b.y, wa) || b.width < 120) return false
+  const [w] = petSize()
+  const cx = petWin.getBounds().x + w / 2 + (b.x - p.bounds.x)
+  const x0 = Math.max(b.x, wa.x) + 36
+  const x1 = Math.min(b.x + b.width, wa.x + wa.width) - 36
+  if (x1 - x0 < 40) return false
+  p.bounds = { ...b }
+  p.top = b.y
+  p.x0 = x0 // the covered parts are worked out again at the next seat check
+  p.x1 = x1
+  if (motion.busy) motion.stop() // strolling: stop and ride along
+  motion.place(Math.round(Math.max(x0, Math.min(x1, cx)) - w / 2), sitY(p.top))
+  return true
 }
 
 let perchBusy = false
@@ -2184,14 +2252,31 @@ async function perchTick() {
       if (Date.now() >= p.until) await unperch()
       return
     }
-    // One request at a time: skip this second while OCR or a look is using the helper.
-    if (screenSense.busy) return
+    // One request at a time: skip this second while OCR or a look is using the helper (not while riding along).
+    if (screenSense.busy && !p.fast) return
     const r = await screenSense.rect(p.hwnd)
     if (state.perch !== p || !r) return
+    if (r.gone || r.minimized || r.maximized) return void (await unperch('fall'))
     const b = r.bounds
-    if (r.gone || r.minimized || r.maximized || Math.abs(b.x - p.bounds.x) > 3 || Math.abs(b.y - p.bounds.y) > 3) return void (await unperch('fall'))
-    p.ticks++
-    if (p.ticks % 4 === 0) {
+    if (Math.abs(b.x - p.bounds.x) > 1 || Math.abs(b.y - p.bounds.y) > 1 || Math.abs(b.width - p.bounds.width) > 1) {
+      // The user is moving her window: hold on and move with it, checking often until it settles.
+      if (!followSeat(p, b)) return void (await unperch('fall'))
+      p.movedAt = Date.now()
+      if (!p.fast) {
+        p.fast = true
+        perchRate(PERCH_FAST_MS)
+      }
+      return
+    }
+    if (p.fast) {
+      if (Date.now() - p.movedAt < 1500) return
+      p.fast = false
+      perchRate(PERCH_SLOW_MS)
+      p.nextCheck = 0 // check right away what of the edge is still free at the new place
+      savePosition()
+    }
+    if (Date.now() >= p.nextCheck) {
+      p.nextCheck = Date.now() + 4000
       // Another window raised over her seat hides the edge she sits on: get down.
       const cx = petWin.getBounds().x + petSize()[0] / 2
       const mine = (await findSeats()).find((s) => s.win.hwnd === p.hwnd && cx >= s.x0 - 24 && cx <= s.x1 + 24)
@@ -2249,6 +2334,45 @@ async function landOnWindow({ exclude, maxDrop = Infinity } = {}) {
   await motion.fall(standY(seat.top))
   if (superseded(gen)) return null
   // Another motion may have cancelled the fall: only sit down if she really got there.
+  if (Math.abs(petWin.getPosition()[1] - standY(seat.top)) > 2) return false
+  release()
+  motion.place(petWin.getPosition()[0], sitY(seat.top))
+  startPerch(seat, rnd(60, 180) * 1000)
+  return true
+}
+
+/** How far (DIP) she reaches for a window edge when let go. */
+const DROP_REACH = 320
+
+/**
+ * Let go: sit on the nearest visible window edge within reach of her feet — falling onto it when it is
+ * right below her, hopping over (or up) to it otherwise. Same results as landOnWindow.
+ */
+async function landNearest() {
+  const gen = state.moveGen
+  const [w, h] = petSize()
+  const b = petWin.getBounds()
+  const cx = b.x + w / 2
+  const feet = b.y + h
+  const seats = await findSeats()
+  if (superseded(gen)) return null
+  let best = null
+  for (const seat of seats) {
+    const x = Math.max(seat.x0, Math.min(seat.x1, cx))
+    const d = Math.hypot(x - cx, seat.top - feet)
+    if (!best || d < best.d) best = { seat, x, d }
+  }
+  if (!best || best.d > DROP_REACH) return false
+  const { seat, x, d } = best
+  let ok
+  if (Math.abs(x - cx) < 2 && seat.top >= feet - 6) {
+    ok = await motion.fall(standY(seat.top)) // straight down onto it
+  } else {
+    hold('happy')
+    ok = await motion.jumpTo(Math.round(x - w / 2), standY(seat.top), Math.round(Math.max(320, Math.min(650, 250 + d))), Math.max(20, Math.min(70, d / 3)))
+  }
+  if (superseded(gen)) return null
+  // Another motion may have cancelled the move: only sit down if she really got there.
   if (Math.abs(petWin.getPosition()[1] - standY(seat.top)) > 2) return false
   release()
   motion.place(petWin.getPosition()[0], sitY(seat.top))
@@ -3006,9 +3130,13 @@ async function endDrag(why = 'up') {
   {
     const gen = state.moveGen
     await inTransit(async () => {
-      // Let go above a window: she lands on its top edge and sits there. Without gravity only
-      // when put down right at the edge. Not while a scene is still playing: it moves her on.
-      const landed = S().climbWindows && !state.scripted ? await landOnWindow(S().gravity ? {} : { maxDrop: 60 }) : false
+      // Let go near a window: she goes to the nearest top edge within reach and sits there; with
+      // gravity she also lands on any window further below. Not while a scene is still playing.
+      let landed = false
+      if (S().climbWindows && !state.scripted) {
+        landed = await landNearest()
+        if (landed === false && S().gravity) landed = await landOnWindow()
+      }
       if (landed === null) return // grabbed again meanwhile
       if (landed) {
         if (S().gravity && Math.random() < 0.5) say(P.pick(P.LINES.perch), { ttl: 3000 })
@@ -3195,6 +3323,7 @@ function wireIpc() {
   ipcMain.handle('note:post', () => postTodoNote())
   ipcMain.handle('tidy:now', () => tidyNow())
   ipcMain.handle('look:now', () => lookNow())
+  ipcMain.handle('screen:permission', () => requestScreenPermission())
   ipcMain.handle('climb:now', () => climbNow())
   ipcMain.handle('screen:pause', (_e, minutes) => pauseScreen(Number(minutes) || 0))
   ipcMain.handle('screen:refresh', () => refreshScreenCapabilities())
@@ -3418,6 +3547,8 @@ if (!app.requestSingleInstanceLock()) {
     // Windows starts with working defaults, so startup does not wait for the helper there.
     if (process.platform === 'win32') refreshScreenCapabilities().catch((e) => console.warn('[caps]', e.message))
     else await refreshScreenCapabilities()
+    // macOS without screen recording: open the permission page once she has said hello.
+    setTimeout(() => requestScreenPermission({ auto: true }).catch((e) => console.warn('[screen permission]', e.message)), 8000)
     agenda = new Agenda(controller)
     brain = new Brain(controller)
     brain.start()
