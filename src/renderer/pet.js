@@ -525,6 +525,22 @@ async function applyInit(data) {
   layout()
 }
 
+// The canvas is sized in device pixels. When the window lands on a screen with another pixel density,
+// or the display's resolution or scaling changes, lay it out again; otherwise she is drawn at the old
+// density: too small or too big, and off her feet.
+let dprQuery = null
+function watchDensity() {
+  if (dprQuery) dprQuery.removeEventListener('change', onDensity)
+  dprQuery = matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`)
+  dprQuery.addEventListener('change', onDensity)
+}
+function onDensity() {
+  if (cfg) layout()
+  watchDensity()
+}
+watchDensity()
+window.addEventListener('resize', () => cfg && layout())
+
 pet.on('pet:cmd', async (cmd) => {
   switch (cmd.type) {
     case 'init':

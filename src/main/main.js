@@ -3225,7 +3225,7 @@ function wireIpc() {
       pokes = []
       once('dizzy', 2)
       say(P.pick(P.LINES.poke), { ttl: 2500 })
-    } else if (count === 2) openPanel('chat')
+    } else if (count === 2) lookNow().catch((e) => console.warn('[look]', e.message)) // double-click: "what am I doing?"
     else {
       pokes.push(Date.now())
       pokes = pokes.filter((t) => Date.now() - t < 4000)
@@ -3554,6 +3554,8 @@ if (!app.requestSingleInstanceLock()) {
     brain.start()
     if (!DESKTOP.floating) openPanel('chat')
     screen.on('display-metrics-changed', () => {
+      // Resolution or scaling changed: put her window back to her size and redraw her at the new density.
+      if (petWin && !petWin.isDestroyed()) resizePet()
       if (!motion || !petWin || state.dragging || state.transit > 0) return // the drop/landing settles it
       if (state.perch) unperch('fall') // her seat's coordinates are stale now
       else motion.fall()
