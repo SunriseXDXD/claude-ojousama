@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>住在你桌面上的像素风 AI 伙伴</b><br/>
-  会看你的屏幕、主动帮忙、记得你的习惯——由 Claude Code 驱动
+  会看你的屏幕、主动帮忙、记得你的习惯——由 Claude Code / Codex / DeepSeek 驱动
 </p>
 
 <p align="center">
@@ -19,6 +19,59 @@
 **Claude Ojousama**（中文昵称「Claude 大小姐」，小名「小克」）是一个橙发、戴向日葵发饰的像素风程序员少女，带着自己的小 CRT 电脑住在你的任务栏上。她是个喜欢装高冷的傲娇大小姐：自称「本小姐」（留便签时署名「小克」），嘴上嫌麻烦、说「才不是为了你」，事情却做得又快又好。
 
 她不只是会动的贴图。她背后是一个真正的 AI Agent：能读写文件、跑命令、做调研。她会自己留意你在做什么：屏幕上出现报错时拿着放大镜过来问要不要帮忙，提醒你没理就过几分钟再来，你复制了一段英文就问要不要翻译，下载文件夹乱了就把文件一个个拖进对应的文件夹。
+
+换成 ChatGPT（Codex）或 DeepSeek 当内核时，陪你的人也跟着换：温柔的 ChatGPT 龙娘，或者吃白饭的 DeepSeek 鲸鱼娘。
+
+---
+
+## 📦 安装
+
+**系统要求：** Windows 10/11、macOS（Apple Silicon / Intel）、Linux 桌面。
+
+### 1. 准备一个 AI 内核（三选一，之后随时能换）
+
+| AI 内核 | 她是谁 | 安装与登录 |
+|---|---|---|
+| Claude Code（默认） | Claude 大小姐 | 安装 [Claude Code](https://code.claude.com/docs/en/setup)，终端运行一次 `claude` 登录（Claude 订阅或 API Key） |
+| Codex | ChatGPT 龙娘 | `npm i -g @openai/codex`，然后运行 `codex login`（ChatGPT 账号或 API Key） |
+| DeepSeek Harness | DeepSeek 鲸鱼娘 | 安装 DeepSeek Harness 应用并登录 DeepSeek 账号；或 `npm i -g @deepseek-ai/dsh`（需要 Node.js 24.9+），在 `~/.dsh/.env` 里写 `DEEPSEEK_API_KEY` |
+
+她直接使用这些工具已有的登录和配置（Claude Code 包括 `~/.claude/settings.json` 里的 `env`，第三方接入点也能用），不复制登录凭据、不修改全局配置。Claude Code 本次验证版本为 2.1.318。
+
+### 2. 安装她
+
+**方式一：下载安装包（最简单）**：到 [Releases](https://github.com/Silasvanceneo/claude-ojousama/releases/latest) 下载对应系统的安装包（Windows `.exe`、macOS `.dmg`、Linux `.AppImage` / `.deb`）。安装包未经 Apple 公证、Windows 版未签名，首次运行请按系统提示确认来源。之后有新版本时，她会在气泡里告诉你。
+
+**方式二：从源码安装**（需要 Node.js 22.12+；macOS 还需要 Xcode Command Line Tools，用来构建原生助手）：
+
+```bash
+git clone https://github.com/Silasvanceneo/claude-ojousama.git
+cd claude-ojousama
+npm install              # 国内网络可先设置 ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/
+npm run setup-signing    # 仅 macOS，只需一次：固定签名，以后重装不用重新授权屏幕录制
+npm run install-app      # 构建并安装到当前用户目录，然后启动
+```
+
+安装位置：Windows 沿用 PowerShell 安装器（桌面会出现「Claude Ojousama」快捷方式），macOS 是 `~/Applications`，Linux 是 `~/.local/share/claude-ojousama`。
+
+<details>
+<summary>为什么 macOS 要先运行 <code>npm run setup-signing</code>？</summary>
+
+系统按代码签名记住屏幕录制权限，而默认的 ad-hoc 签名是这次构建本身的哈希，每次构建都不一样，系统就当成了一个新应用。`npm run setup-signing` 在登录钥匙串里建一个本机自签名证书「Claude Ojousama Local Signing」，之后 `npm run install-app` 都用它签名，签名身份保持不变，授权一次就一直有效（第一次签名时系统会问 codesign 能否使用这把钥匙，输入登录密码并选「始终允许」）。签名变了时，安装脚本会用 `tccutil` 清掉旧的授权记录，免得系统设置里显示已打开、其实不起作用。
+
+</details>
+
+### 3. 第一次启动
+
+1. **选 AI 内核**：双击她打开控制面板 →「设置 → AI 内核」，选你在第 1 步准备的那个。路径、模型和推理强度留空即可（会在 PATH、`~/.local/bin`、Homebrew、npm 全局目录和各桌面应用自带的命令行里自动查找）。
+2. **允许看屏幕**（macOS）：她会自动打开「系统设置 → 隐私与安全性 → 屏幕与系统音频录制」，允许 Claude Ojousama 后回到设置页点「重新检测」。Linux 的依赖见下文「各平台的屏幕能力」。
+3. **想让她改文件**：先选择工作目录，再把权限切换为「工作区可写」。新安装默认只读。
+
+### 更新与开发
+
+- 安装包：她会在气泡里提醒新版本，点「去下载」即可。
+- 源码：`git pull && npm install && npm run install-app`。从很早的版本升级时，旧的后端设置会被清理、改用 Claude Code：对话记录、待办、记忆都保留，权限和工作目录不变。
+- 开发时 `npm start` 直接从源码运行，不用安装（Windows 也可以双击 `start-pet.cmd`）。源码运行时，macOS 可能要求给启动它的终端或 IDE 授权屏幕录制。
 
 ---
 
@@ -135,47 +188,22 @@
 
 </details>
 
-## 🚀 快速开始
-
-**平台：** Windows 10/11、macOS（Apple Silicon / Intel）、Linux 桌面。
-
-**准备 Claude Code：** 安装 [Claude Code](https://code.claude.com/docs/en/setup)，在终端运行一次 `claude` 完成登录（Claude 订阅或 API Key 都可以）。
-
-她直接使用 Claude Code 已有的登录和配置（包括 `~/.claude/settings.json` 里的 `env`，第三方接入点也能用），不复制登录凭据、不修改全局配置。本次验证版本为 2.1.318。
-
-**最简单：** 到 [Releases](https://github.com/Silasvanceneo/claude-ojousama/releases/latest) 下载对应系统的安装包（Windows `.exe`、macOS `.dmg`、Linux `.AppImage` / `.deb`）。之后有新版本时，她会在气泡里告诉你。
-
-也可以从源码运行（Node.js 22.12+）：
-
-```powershell
-git clone https://github.com/Silasvanceneo/claude-ojousama.git
-cd claude-ojousama
-npm install            # 国内网络可先设置 $env:ELECTRON_MIRROR = "https://npmmirror.com/mirrors/electron/"
-npm start              # 启动；macOS 源码开发需要 Xcode Command Line Tools 构建原生助手
-```
-
-Windows 也可以直接双击 `start-pet.cmd`。安装后桌面会出现「Claude Ojousama」快捷方式。
-
-> 开发时 `npm start` 即可直接运行。
-
-「设置 → AI 内核」里的 Claude Code 路径、模型和推理强度留空即可使用默认配置（找不到时会在 PATH、`~/.local/bin`、Homebrew 和 npm 的安装位置里找）。需要她改文件时，先选择工作目录，再把权限切换为「工作区可写」。新安装默认只读。
-
-从很早的版本升级时，旧的后端设置会被清理、改用 Claude Code：对话记录、待办、记忆都保留，权限和工作目录不变。
-
-### 三个 AI 内核，三个她
+## 🤖 三个 AI 内核，三个她
 
 「设置 → AI 内核」可以换成 ChatGPT（Codex）或 DeepSeek（DeepSeek Harness）。换了内核就换了一个人：名字、性格、台词、便签署名、精灵图和托盘图标都跟着换（人设参考了中文网上流行的「AI 拟人」形象）。对话记录、待办、记忆、成长都是共用的；换内核后会开新会话，不会把一家的会话交给另一家续聊。
 
-| AI 内核 | 她是谁 | 准备 |
-|---|---|---|
-| Claude Code | **Claude 大小姐**：傲娇，自称「本小姐」，便签署名「小克」 | 安装 Claude Code，终端运行一次 `claude` 登录 |
-| Codex（ChatGPT） | **ChatGPT 龙娘**：成熟温柔的白龙大姐姐，银发紫瞳、白色礼服，总说「我在呢」「稳稳接住你」，喜欢亮晶晶的东西；便签署名「白龙」 | `npm i -g @openai/codex`，终端运行 `codex login` 用 ChatGPT 账号（Plus / Pro 等套餐）或 API Key 登录 |
-| DeepSeek Harness | **DeepSeek 鲸鱼娘**：吃白饭的蓝色「大肥鱼」女仆，自称「本鱼」、叫你「鱼片」，爱摸鱼、爱讨 Token，最讨厌别人叫她大肥鱼（「是小鲸鱼！」）；便签署名「小鲸鱼🐋」 | 安装 DeepSeek Harness 应用并登录 DeepSeek 账号；或 `npm i -g @deepseek-ai/dsh`（需要 Node.js 24.9+），在 `~/.dsh/.env` 里写 `DEEPSEEK_API_KEY` |
+| AI 内核 | 她是谁 |
+|---|---|
+| Claude Code | **Claude 大小姐**：橙发、向日葵发饰的傲娇大小姐，自称「本小姐」，便签署名「小克」 |
+| Codex（ChatGPT） | **ChatGPT 龙娘**：成熟温柔的白龙大姐姐，银发紫瞳、白色礼服，总说「我在呢」「稳稳接住你」，喜欢亮晶晶的东西；便签署名「白龙」 |
+| DeepSeek Harness | **DeepSeek 鲸鱼娘**：吃白饭的蓝色「大肥鱼」女仆，自称「本鱼」、叫你「鱼片」，爱摸鱼、爱讨 Token，最讨厌别人叫她大肥鱼（「是小鲸鱼！」）；便签署名「小鲸鱼🐋」 |
+
+安装和登录方法见「[安装](#-安装)」。
 
 - 三个内核用同一套权限：只读 / 工作区可写 / 完全访问。Codex 走 `codex app-server`（审批策略 `never`，用沙箱限制权限）；DeepSeek Harness 走 `dsh --profile headless --json`，按权限和场景关掉用不到的工具，截图以文件形式交给它的 `read_image` 工具。
 - 路径和模型留空会自动查找（PATH、`~/.local/bin`、Homebrew、npm 全局目录，以及 Codex / DeepSeek Harness 桌面应用自带的命令行）。Codex 的模型和推理强度、DeepSeek Harness 的模型（`provider/model`）可以在设置里单独填。
 
-#### 龙娘和鲸鱼娘的精灵图
+### 龙娘和鲸鱼娘的精灵图
 
 龙娘和鲸鱼娘的 47 个动作都已经画好（用 `sample/` 里的立绘、由 Codex 内置的图片生成画出，再经 `process_sprites.py --char` 处理）。以后要重画或给新动作补图，有下面几种办法；某个动作还没有图时，会暂时用大小姐的图代替。
 
@@ -207,7 +235,7 @@ python3 tools/process_sprites.py --char whale                    # 切帧、去�
 - 不满意的动作：`--only 动作名 --force` 重新生成，再跑一次 `process_sprites.py --char`。
 - 兼容 OpenAI 图片编辑接口的其他服务：设置 `OPENAI_BASE_URL`（或沿用 `PET_IMG_BASE` / `PET_IMG_KEY`）。
 
-### 各平台的屏幕能力
+## 🖥️ 各平台的屏幕能力
 
 | 平台 | 窗口感知 / 停靠 | 看屏与 OCR |
 |---|---|---|
@@ -220,11 +248,7 @@ python3 tools/process_sprites.py --char whale                    # 切帧、去�
 - Linux：窗口助手需要 Python 3；X11 窗口信息需要 libX11 和支持 EWMH 的窗口管理器。OCR 另需 `tesseract` 及相应语言包（如 `eng`、`chi_sim`）。缺少依赖会在设置中明确显示，不影响聊天、任务和待办。
 - Wayland：需可用的 PipeWire / desktop portal 才能选屏。有 XWayland 时使用悬浮桌宠；没有时使用普通窗口，系统管理位置。未获得前台信息时，手动共享前会提醒你避开敏感内容。
 
-### 安装与打包
-
-`npm run install-app` 安装到当前用户目录并启动：Windows 沿用原 PowerShell 安装器，macOS 使用 `~/Applications`，Linux 使用 `~/.local/share/claude-ojousama`。预编译的 macOS 安装包不需要编译工具。
-
-**macOS 每次重新构建都要重新授权屏幕录制？** 系统按代码签名记住权限，而默认的 ad-hoc 签名是这次构建本身的哈希，每次构建都不一样，系统就当成了一个新应用。先运行一次 `npm run setup-signing`：它在登录钥匙串里建一个本机自签名证书「Claude Ojousama Local Signing」，之后 `npm run install-app` 都用它签名，签名身份保持不变，授权一次就一直有效（第一次签名时系统会问 codesign 能否使用这把钥匙，输入登录密码并选「始终允许」）。签名变了时，安装脚本会用 `tccutil` 清掉旧的授权记录，免得系统设置里显示已打开、其实不起作用。
+## 🛠️ 打包发布
 
 `npm run dist` 生成当前系统安装包：Windows NSIS / ZIP、macOS DMG / ZIP、Linux AppImage / deb。CI 在 Windows、macOS ARM / Intel 和 Linux 分别构建；在 GitHub 上发布 Release（tag 为 `v` + package.json 版本号）后，CI 会自动把四个平台的安装包上传到这个 Release。macOS 安装包使用 ad-hoc 签名，尚未经过 Apple 公证；Windows 安装包未签名。首次运行请按系统提示确认来源。
 
@@ -377,7 +401,9 @@ node tools/cdp.js "__pet.lookNow()"   # 在运行中的应用里执行调试命�
 <details>
 <summary><b>English</b></summary>
 
-**Claude Ojousama** is a pixel-art desktop companion for Windows, macOS and Linux: an orange-haired programmer girl with a sunflower hair clip and a tiny CRT computer, living on your taskbar. She is a tsundere young lady who plays it cool: she grumbles that it is too much trouble, then does the job quickly and well. She runs on Claude Code: each turn is one headless `claude -p` run with stream-json input and output. Installations upgraded from the old Codex / DeepSeek Harness backends switch to Claude Code and keep their chats, todos, memories, permission and work folder. Native macOS helpers are bundled in distributables; Linux X11 uses Python 3/libX11 with optional Tesseract. Wayland uses user-selected screen sharing and does not expose global window observation. See the platform table above for limits and required permissions.
+Install a platform build from GitHub Releases, or from source with Node.js 22.12+: `npm install`, then on macOS `npm run setup-signing` once (a local self-signed identity, so Screen Recording permission survives rebuilds; ad-hoc signatures change with every build), then `npm run install-app`. Pick an AI core and sign in to it first: Claude Code (run `claude` once; tested 2.1.318), Codex (`npm i -g @openai/codex`, `codex login` with ChatGPT or an API key) or DeepSeek Harness (the desktop app, or `npm i -g @deepseek-ai/dsh` with Node.js 24.9+ and `DEEPSEEK_API_KEY` in `~/.dsh/.env`). On first launch, double-click her for the control panel and choose the core under Settings → AI core; on macOS allow Screen Recording when System Settings opens. Building the macOS helper from source requires Xcode Command Line Tools; prebuilt apps bundle it. macOS packages use ad-hoc signing and are not notarized; Windows packages are unsigned.
+
+**Claude Ojousama** is a pixel-art desktop companion for Windows, macOS and Linux: an orange-haired programmer girl with a sunflower hair clip and a tiny CRT computer, living on your taskbar. She is a tsundere young lady who plays it cool: she grumbles that it is too much trouble, then does the job quickly and well. She runs on Claude Code (each turn is one headless `claude -p` run with stream-json input and output). Switch the AI core to Codex or DeepSeek Harness and the companion changes with it: the gentle ChatGPT Dragon, a white dragon big sister, or the DeepSeek Whale, a blue whale maid who lives on free rice and tokens. Chats, todos, memories and growth are shared. Native macOS helpers are bundled in distributables; Linux X11 uses Python 3/libX11 with optional Tesseract. Wayland uses user-selected screen sharing and does not expose global window observation. See the platform table above for limits and required permissions.
 
 - **Sees your screen**: she captures the window you are using (long edge ≤ 1280 px) plus local OCR text when available and lets the model read it. She points out bugs, comments on what you are doing, and turns deadlines into todos.
 - **Acts on her own**: she reacts when you switch windows, every now and then, on errors, copied text, long sessions, and when you come back. She backs off when ignored, waits for typing pauses, stays quiet in meetings and hides during fullscreen apps.
@@ -388,8 +414,6 @@ node tools/cdp.js "__pet.lookNow()"   # 在运行中的应用里执行调试命�
 - **Sits on your windows**: she finds the visible top edges of your windows, sits there swinging her legs, strolls along the edge, hops between windows, and falls when you move her window.
 - **Reminders that come back**, a sticky-note todo list she drags onto your desktop, long-running goals with scheduled check-ins, Downloads tidying with undo, a daily summary, weather, moods, pranks and 47 animations.
 - **Privacy controls**: a block list (password managers, banking, private windows and chat apps by default), a per-behaviour auto/ask/off rule, a one-hour pause, and temporary screenshots deleted right after use. Screen content is sent to the model provider Claude Code is configured to use. Her own unattended runs (looks, reflection, briefs, workspace pulse) use `--restricted --safe-mode` with no tools, or read-only file tools confined to the work folder.
-
-Install a platform build from GitHub Actions, or use Node.js 22.12+ with `npm install` and `npm run install-app`. Install Claude Code and run `claude` once to sign in; the tested version is 2.1.318. Building the macOS helper from source requires Xcode Command Line Tools; prebuilt apps bundle it. macOS keeps Screen Recording permission per code signature, and ad-hoc signatures change with every build: run `npm run setup-signing` once to create a local self-signed identity that `npm run install-app` then signs with, so the permission survives rebuilds. macOS packages use ad-hoc signing and are not notarized; Windows packages are unsigned.
 
 Fan project, not affiliated with Anthropic. "Claude" is a trademark of Anthropic.
 
