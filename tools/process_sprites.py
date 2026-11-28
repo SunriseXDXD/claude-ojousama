@@ -5,6 +5,13 @@ Icons are produced separately by tools/make_icons.py.
 
 The generator lays frames out on an even 4-cell grid, so frames are cut by cell and
 cropped with one union box per animation to keep the authored alignment.
+
+Other characters: python3 tools/process_sprites.py --char whale [--from folder] [names ...]
+reads assets/characters/<id>/raw/*.png (from tools/gen_character_sprites.py, or copied in from
+--from: pictures drawn with the tools/make_gpt_pack.py pack, named like "07_sit.png" or, from the
+Codex run, "whale_07_sit.png"), keys out a
+flat background, sizes them to Claude's desk scene and writes assets/characters/<id>/sprites/ plus
+head.png and tray.png cut from the wave frame. Animations without a sheet yet keep showing Claude's.
 """
 import json
 import os
@@ -76,13 +83,62 @@ ANIMS = {
 }
 
 
+KEYED = False  # --char: raw sheets come on a flat background that has to be removed
+
+
+def key_background(a, tol=60):
+    """Make a flat background transparent: magenta everywhere, any other colour only where it touches the edge."""
+    if (a[..., 3] < 250).mean() > 0.05:
+        return a  # already transparent
+    rgb = a[..., :3].astype(int)
+    border = np.concatenate([rgb[0], rgb[-1], rgb[:, 0], rgb[:, -1]])
+    bg = np.median(border, axis=0)
+    near = np.abs(rgb - bg).sum(axis=2) <= tol
+    if bg[0] > 180 and bg[2] > 180 and bg[1] < 90:
+        mask = near  # magenta is never on the character, so holes between arms go too
+        # Anti-aliased fringe: strongly magenta-tinted pixels (red and blue well above green).
+        mask |= (rgb[..., 0] - rgb[..., 1] > 90) & (rgb[..., 2] - rgb[..., 1] > 90) & (np.abs(rgb[..., 0] - rgb[..., 2]) < 70)
+    else:
+        from PIL import ImageDraw
+
+        im = Image.fromarray(np.where(near, 255, 0).astype(np.uint8), "L")
+        h, w = near.shape
+        for y, x in [(0, x) for x in range(w)] + [(h - 1, x) for x in range(w)] + [(y, 0) for y in range(h)] + [(y, w - 1) for y in range(h)]:
+            if im.getpixel((x, y)) == 255:
+                ImageDraw.floodfill(im, (x, y), 128)
+        mask = np.array(im) == 128
+    a = a.copy()
+    a[mask] = 0
+    return a
+
+
+def cut_points(a):
+    """Cell edges for CELLS frames: the even split, moved to the nearest empty column if one is close."""
+    filled = (a[..., 3] > 0).sum(axis=0) >= 2
+    xs = np.nonzero(filled)[0]
+    if not len(xs):
+        return [round(i * a.shape[1] / CELLS) for i in range(CELLS + 1)]
+    x0, x1 = int(xs[0]), int(xs[-1]) + 1  # the drawn row of frames, without the page margins
+    span = x1 - x0
+    cuts = [x0]
+    for i in range(1, CELLS):
+        ideal = x0 + round(i * span / CELLS)
+        reach = int(span / CELLS * 0.2)
+        near = [x for x in range(max(x0 + 1, ideal - reach), min(x1 - 1, ideal + reach)) if not filled[x]]
+        cuts.append(min(near, key=lambda x: abs(x - ideal)) if near else ideal)
+    cuts.append(x1)
+    return cuts
+
+
 def load_cells(name):
     a = np.array(Image.open(os.path.join(RAW, name + ".png")).convert("RGBA"))
+    if KEYED:
+        a = key_background(a)
     h, w, _ = a.shape
-    cw = w / CELLS
+    cuts = cut_points(a) if KEYED else [int(round(i * w / CELLS)) for i in range(CELLS + 1)]
     cells = []
     for i in range(CELLS):
-        c = a[:, int(round(i * cw)) : int(round((i + 1) * cw))].copy()
+        c = a[:, cuts[i] : cuts[i + 1]].copy()
         alpha = c[..., 3]
         c[..., 3] = np.where(alpha >= ALPHA_CUT, 255, 0).astype(np.uint8)
         c[c[..., 3] == 0] = 0
@@ -250,7 +306,126 @@ def add(names):
         json.dump(manifest, fh_, indent=2)
 
 
+def import_pictures(folder, raw, char=""):
+    """Copy returned pictures into raw/, matching names like "07_sit.png", "sit (1).png", "Sit.PNG" or
+    "whale_07_sit.png" (a folder with both characters: only this character's are taken)."""
+    import re
+    import shutil
+
+    os.makedirs(raw, exist_ok=True)
+    found, skipped = [], []
+    for fn in sorted(os.listdir(folder)):
+        stem, ext = os.path.splitext(fn)
+        if ext.lower() not in (".png", ".jpg", ".jpeg", ".webp"):
+            continue
+        low = stem.lower()
+        owner = re.match(r"^(dragon|whale|ojousama)[\s._-]+", low)
+        if owner:
+            if owner.group(1) != char:
+                continue  # the other character's picture
+            low = low[owner.end() :]
+        m = re.match(r"^\d*[\s._-]*([a-z]+)", low)
+        name = m.group(1) if m else ""
+        if name not in ANIMS or "pose" in stem.lower():
+            skipped.append(fn)
+            continue
+        Image.open(os.path.join(folder, fn)).convert("RGBA").save(os.path.join(raw, name + ".png"))
+        found.append(name)
+    print(f"imported {len(found)} picture(s) from {folder}" + (f"; not an animation name: {', '.join(skipped)}" if skipped else ""))
+    return found
+
+
+def make_icons(char_dir, strip_path, entry):
+    """head.png and tray.png from the first wave frame, the way tools/make_icons.py made Claude's."""
+    frame = Image.open(strip_path).convert("RGBA").crop((0, 0, entry["w"], entry["h"]))
+    a = np.array(frame)[..., 3]
+    rows = np.where(a.any(axis=1))[0]
+    top = int(rows.min())
+    size = int(entry["h"] * 0.46)
+    cols = np.where(a[top : top + size].any(axis=0))[0]
+    cx = int((cols.min() + cols.max()) / 2)
+    head = frame.crop((cx - size // 2, max(0, top - 1), cx - size // 2 + size, max(0, top - 1) + size))
+    head.resize((56, 56), Image.NEAREST if size <= 56 else Image.BOX).save(os.path.join(char_dir, "head.png"))
+    head.resize((32, 32), Image.BOX).save(os.path.join(char_dir, "tray.png"))
+
+
+def character(char, only):
+    """Build a character's strips from its raw sheets, keeping existing strips for missing ones."""
+    global RAW, OUT, KEYED
+    RAW = os.path.join(ROOT, "assets", "characters", char, "raw")
+    OUT = os.path.join(ROOT, "assets", "characters", char, "sprites")
+    KEYED = True
+    if only[:1] == ["--from"]:
+        if len(only) < 2:
+            sys.exit("--from needs a folder")
+        import_pictures(only[1], RAW, char)
+        only = only[2:]
+    if not os.path.exists(os.path.join(RAW, "typing.png")):
+        sys.exit(f"{RAW}/typing.png is missing: it sets the scale (generate it first)")
+    os.makedirs(OUT, exist_ok=True)
+    man_path = os.path.join(OUT, "manifest.json")
+    manifest = {"scaleNote": "native pixels; renderer multiplies by settings.scale", "anims": {}}
+    if os.path.exists(man_path):
+        with open(man_path, encoding="utf8") as fh_:
+            manifest = json.load(fh_)
+    names = [n for n in (only or ANIMS) if os.path.exists(os.path.join(RAW, n + ".png"))]
+    tb = union_box(load_cells("typing"))
+    global_scale = DESK_TARGET_H / (tb[3] - tb[1])
+    print(f"{char}: {len(names)} sheet(s), scale {global_scale:.4f}")
+    with open(os.path.join(ROOT, "assets", "sprites", "manifest.json"), encoding="utf8") as fh_:
+        claude = json.load(fh_)["anims"]
+    staged = {}
+    for name in names:
+        fps, loop, rel = ANIMS[name]
+        cells = load_cells(name)
+        box = union_box(cells)
+        scale = global_scale * rel
+        # The model sometimes draws one animation much bigger or smaller than the pose sheet (a close-up
+        # peek, a stretch filling the page): bring it back to Claude's height for that animation.
+        want = claude.get(name, {}).get("h")
+        got = (box[3] - box[1]) * scale
+        if want and abs(got - want) > want * 0.2:
+            print(f"  {name}: drawn at {got / want:.2f}x Claude's height, rescaled")
+            scale *= want / got
+        staged[name] = [remove_specks(downscale(c, box, scale)) for c in cells]
+    # One palette for the whole character: seed it with strips that stay (from earlier runs).
+    generated = set(os.path.splitext(f)[0] for f in os.listdir(RAW) if f.endswith(".png") and "." not in os.path.splitext(f)[0])
+    keep = [e for n, e in manifest["anims"].items() if n not in staged and n in generated]
+    seeds = [np.array(Image.open(os.path.join(OUT, e["file"])).convert("RGBA")) for e in keep]
+    pal = build_palette(seeds + [f for fr in staged.values() for f in fr])
+    for name, frames in staged.items():
+        fps, loop, rel = ANIMS[name]
+        frames = [apply_palette(f, pal) for f in frames]
+        fh = max(f.shape[0] for f in frames)
+        fw = max(f.shape[1] for f in frames)
+        strip = np.zeros((fh, fw * len(frames), 4), np.uint8)
+        for i, f in enumerate(frames):
+            strip[fh - f.shape[0] :, i * fw : i * fw + f.shape[1]] = f
+        Image.fromarray(strip, "RGBA").save(os.path.join(OUT, name + ".png"))
+        entry = {"file": name + ".png", "frames": len(frames), "w": fw, "h": fh, "fps": fps, "loop": loop}
+        cut = [strip[:, i * fw : (i + 1) * fw] for i in range(len(frames))]
+        if name == "drag":
+            entry["rope"] = rope_points(cut)
+        if name == "peek":
+            entry["anchor"] = "right"
+        if name == "sit":
+            entry["sink"] = seat_sink(cut)
+        if name == "sign":
+            entry["boards"] = board_rects(cut)
+        manifest["anims"][name] = entry
+        print(f"  {name}: {len(frames)} x {fw}x{fh}")
+    with open(man_path, "w", encoding="utf8") as fh_:
+        json.dump(manifest, fh_, indent=2)
+    if "wave" in manifest["anims"]:
+        make_icons(os.path.dirname(OUT), os.path.join(OUT, manifest["anims"]["wave"]["file"]), manifest["anims"]["wave"])
+    missing = [n for n in ANIMS if n not in manifest["anims"]]
+    if missing:
+        print(f"not drawn yet (Claude's stand in): {', '.join(missing)}")
+
+
 def main():
+    if len(sys.argv) > 2 and sys.argv[1] == "--char":
+        return character(sys.argv[2], sys.argv[3:])
     if len(sys.argv) > 2 and sys.argv[1] == "--add":
         return add(sys.argv[2:])
     if len(sys.argv) > 1 and sys.argv[1] == "--boards":

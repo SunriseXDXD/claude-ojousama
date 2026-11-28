@@ -43,6 +43,11 @@ function buildApp({ dir = false, args = [] } = {}) {
   delete env.ELECTRON_RUN_AS_NODE
   run(process.execPath, [path.join(__dirname, 'build-screen-helper.js')], env)
   run(process.execPath, [require.resolve('electron-builder/cli.js'), ...builderArguments(output, { dir, args })], env)
+  if (process.platform === 'darwin' && dir) {
+    // Local builds: sign with the stable local identity so macOS keeps the screen recording permission.
+    const { signApp } = require('./mac-signing')
+    if (!signApp(packagePath(output))) console.log('Tip: run `npm run setup-signing` once so macOS keeps the screen recording permission across rebuilds.')
+  }
   if (process.platform === 'darwin' && !dir) deliverArchives(output, path.join(ROOT, 'dist'))
   console.log(`Build output: ${output}`)
   return output

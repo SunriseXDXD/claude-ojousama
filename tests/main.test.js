@@ -47,7 +47,14 @@ const electron = {
 const context = {
   require(name) {
     if (name === 'electron') return electron
-    if (name === './claude') return { ...localRequire('./claude'), ClaudeRun: FakeRun, locateClaude: () => ({ exe: '/test/claude' }) }
+    if (name === './agents') {
+      // The Claude Code core with a fake process; the other cores as they are.
+      const real = localRequire('./agents')
+      const { claudeOptions } = localRequire('./claude')
+      const claude = { ...real.BACKENDS.claude, locate: () => ({ exe: '/test/claude' }), make: (s, opts, located) => new FakeRun({ ...claudeOptions(s, opts), claude: located }) }
+      const BACKENDS = { ...real.BACKENDS, claude }
+      return { ...real, BACKENDS, backendOf: (s) => BACKENDS[s && s.backend] || claude }
+    }
     if (name === './screen') return { ScreenSense: class { static remove() {} } }
     return localRequire(name)
   },

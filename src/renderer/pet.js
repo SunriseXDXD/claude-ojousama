@@ -44,7 +44,7 @@ async function loadSheets() {
   const entries = Object.entries(cfg.manifest)
   await Promise.all(
     entries.map(async ([name, a]) => {
-      if (sheets[name]) return
+      if (sheets[name] && sheets[name].src === cfg.images[name]) return
       const img = await loadImage(cfg.images[name])
       const off = document.createElement('canvas')
       off.width = img.width
@@ -73,7 +73,7 @@ async function loadSheets() {
         }
         bands.push(list)
       }
-      sheets[name] = { img, alpha, stride: img.width, ...a, bands }
+      sheets[name] = { img, alpha, stride: img.width, ...a, bands, src: cfg.images[name] }
     }),
   )
 }
@@ -494,9 +494,22 @@ canvas.addEventListener('pointercancel', endPress)
 canvas.addEventListener('lostpointercapture', () => press && press.dragging && endPress())
 window.addEventListener('blur', () => press && press.dragging && endPress())
 document.addEventListener('visibilitychange', () => document.hidden && press && press.dragging && endPress())
+// Right-click: the menu; right-click twice: she looks at what you're doing. The menu waits a moment
+// for a second click, because once it is open it would take that click itself.
+let rightClicks = 0
+let rightTimer = null
 canvas.addEventListener('contextmenu', (e) => {
   e.preventDefault()
-  if (isOpaqueAt(e.clientX, e.clientY)) pet.send('pet:context-menu')
+  if (!isOpaqueAt(e.clientX, e.clientY)) return
+  clearTimeout(rightTimer)
+  if (++rightClicks >= 2) {
+    rightClicks = 0
+    return pet.send('pet:look')
+  }
+  rightTimer = setTimeout(() => {
+    rightClicks = 0
+    pet.send('pet:context-menu')
+  }, 260)
 })
 
 // ------------------------------------------------------------ drop files / text
@@ -521,6 +534,9 @@ document.addEventListener('drop', (e) => {
 
 async function applyInit(data) {
   cfg = data
+  // Another character (another AI core) comes with other strips under the same names: loadSheets
+  // swaps each one in as it loads, so she never blinks out.
+  for (const name of Object.keys(sheets)) if (!cfg.images[name]) delete sheets[name]
   await loadSheets()
   layout()
 }

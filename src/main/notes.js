@@ -161,7 +161,7 @@ class Notes {
   initFor(webContents) {
     const win = BrowserWindow.fromWebContents(webContents)
     const meta = (win && this.meta.get(win)) || { kind: 'todo' }
-    const data = { kind: meta.kind, pinned: this.pinned }
+    const data = { kind: meta.kind, pinned: this.pinned, sign: this.o.sign ? this.o.sign() : '' }
     if (meta.kind === 'memo') data.text = meta.text
     else {
       Object.assign(data, this.o.todoState(), { writing: !!meta.writing })

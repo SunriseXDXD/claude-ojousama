@@ -300,9 +300,17 @@ function renderSettings() {
   $('#screen-pause').textContent = paused ? T('恢复看屏幕', 'Resume screen looks') : T('1 小时内别看', "Don't look for 1 hour")
   $('#screen-state').textContent = paused ? T(`暂停到 ${fmt(snap.screenPausedUntil, false)}`, `Paused until ${fmt(snap.screenPausedUntil, false)}`) : ''
   $('#scale-val').textContent = `×${s.scale}`
+  const core = snap.backendName || 'Claude Code'
   $('#backend-status').textContent = snap.backendFound
-    ? T(`已找到 ${snap.backendName || 'Claude Code'}：${snap.backendPath}`, `Found ${snap.backendName || 'Claude Code'}: ${snap.backendPath}`)
-    : T('未找到 Claude Code。安装后在终端运行 claude 登录，或选择 claude 的路径。', 'Claude Code not found. Install it and run claude in a terminal to log in, or choose the path to claude.')
+    ? T(`已找到 ${core}：${snap.backendPath}`, `Found ${core}: ${snap.backendPath}`)
+    : T(`未找到 ${core}。按下面的说明安装并登录，或选择它的路径。`, `${core} not found. Install it and sign in as described below, or choose its path.`)
+  // Only the chosen AI core's own settings are shown.
+  for (const el of $$('.backend-fields')) el.hidden = el.dataset.backend !== (s.backend || 'claude')
+  if (snap.characterName) {
+    $('#char-name').textContent = snap.characterName
+    document.title = snap.characterName
+  }
+  if (snap.characterIcon && $('.avatar').src !== snap.characterIcon) $('.avatar').src = snap.characterIcon
   renderScreenCapabilities()
 }
 
@@ -441,10 +449,12 @@ $('#pick-cwd').addEventListener('click', async () => {
   const d = await pet.invoke('pick:dir')
   if (d) pet.invoke('settings:set', { cwd: d })
 })
-$('#pick-claude').addEventListener('click', async () => {
-  const f = await pet.invoke('pick:claude')
-  if (f) pet.invoke('settings:set', { claudeExe: f })
-})
+for (const btn of $$('.pick-agent')) {
+  btn.addEventListener('click', async () => {
+    const f = await pet.invoke('pick:agent')
+    if (f) pet.invoke('settings:set', { [btn.dataset.target]: f })
+  })
+}
 $('#prank-run').addEventListener('click', () => {
   const v = $('#prank-select').value
   if (v === 'climb') pet.invoke('climb:now')

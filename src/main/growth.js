@@ -244,7 +244,7 @@ class Growth {
     const g = this.data
     const stats = this.statsView().map((v) => `- ${v.label}：接受 ${v.accepted}，拒绝 ${v.declined}，没理 ${v.ignored}`)
     return [
-      `[整理记忆] 现在是 ${dayStr(now)} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}。你是 Claude Ojousama（Lv.${this.level()}），趁用户不忙，整理自己的记忆、成长笔记和日记。不要使用任何工具，只输出一个 json 代码块。`,
+      `[整理记忆] 现在是 ${dayStr(now)} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}。你是${require('./persona').name()}（Lv.${this.level()}），趁用户不忙，整理自己的记忆、成长笔记和日记。不要使用任何工具，只输出一个 json 代码块。`,
       `已有的长期记忆（id · 类别 · 重要度1-5 · 来源；来源 user 是用户亲手写的）：\n${mems.map((m) => `- [${m.id}] ${m.kind} · ${m.weight} · ${m.source}：${m.text}`).join('\n') || '（还没有）'}`,
       `我的成长笔记：\n${(g.notes || []).map((x) => `- ${x}`).join('\n') || '（还没有）'}`,
       `用户对我主动帮忙的反应：\n${stats.join('\n') || '（还没有数据）'}`,
@@ -268,7 +268,7 @@ class Growth {
     const stats = this.statsView().map((v) => `- ${v.label}: accepted ${v.accepted}, declined ${v.declined}, ignored ${v.ignored}`)
     const none = '(none)'
     return [
-      `[Tidy memories] It is ${dayStr(now)} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}. You are Claude Ojousama (Lv.${this.level()}); while the user is not busy, tidy up your memories, growth notes and diary. Write everything in English. Don't use any tools; output only one json code block.`,
+      `[Tidy memories] It is ${dayStr(now)} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}. You are ${require('./persona').name()} (Lv.${this.level()}); while the user is not busy, tidy up your memories, growth notes and diary. Write everything in English. Don't use any tools; output only one json code block.`,
       `Existing long-term memories (id · kind · weight 1-5 · source; source user means the user wrote it):\n${mems.map((m) => `- [${m.id}] ${m.kind} · ${m.weight} · ${m.source}: ${m.text}`).join('\n') || none}`,
       `My growth notes:\n${(g.notes || []).map((x) => `- ${x}`).join('\n') || none}`,
       `How the user reacted to my offers:\n${stats.join('\n') || '(no data yet)'}`,

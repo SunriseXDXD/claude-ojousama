@@ -5,7 +5,7 @@
 //   watch-folder tidying, the daily sticky note, greetings, water breaks,
 //   mischief, LLM remarks and wandering.
 // The tick never waits for the user: bubbles resolve in the background.
-const { LINES, pick, fmtTime } = require('./persona')
+const { LINES, pick, fmtTime, me: ME, name: NAME } = require('./persona')
 const { T } = require('./i18n')
 
 const MIN = 60000
@@ -33,7 +33,7 @@ function inQuietHours(settings, d = new Date()) {
 const PRANK_MEAN = { 1: 55, 2: 28, 3: 11 }
 
 const ALERT_ICON = { reminder: '⏰', 'todo-soon': '📌', 'todo-overdue': '⚠️', 'goal-ask': '🎯' }
-const ALERT_TITLE = { reminder: T('Claude 大小姐提醒你', 'Claude Ojousama reminds you'), 'todo-soon': T('待办快到时间了', 'A to-do is almost due'), 'todo-overdue': T('待办过期了', 'A to-do is overdue'), 'goal-ask': T('需要你拍板', 'Your call needed') }
+const ALERT_TITLE = { get reminder() { return T(`${NAME()}提醒你`, `${NAME()} reminds you`) }, 'todo-soon': T('待办快到时间了', 'A to-do is almost due'), 'todo-overdue': T('待办过期了', 'A to-do is overdue'), 'goal-ask': T('需要你拍板', 'Your call needed') }
 const ALERT_BUTTONS = {
   reminder: [
     { id: 'ok', label: T('知道啦', 'Got it') },
@@ -198,10 +198,10 @@ class Proactive {
       const open = pet.store.get('todos').filter((t) => !t.done)
       if (open.length >= 2) {
         pet.store.patch('pet', { lastNoteDay: todayStr })
-        if (noteRule === 'auto') pet.postTodoNote({ line: T(`今天有 ${open.length} 件事要做。本小姐写成便签给你贴出来。`, `${open.length} things to do today. I'll write them on a sticky note for you.`) })
+        if (noteRule === 'auto') pet.postTodoNote({ line: T(`今天有 ${open.length} 件事要做。${ME()}写成便签给你贴出来。`, `${open.length} things to do today. I'll write them on a sticky note for you.`) })
         else
           pet
-            .say(T(`今天有 ${open.length} 件待办。要本小姐写成便签贴到桌面上吗？`, `${open.length} to-dos today. Shall I write them on a sticky note for your desktop?`), {
+            .say(T(`今天有 ${open.length} 件待办。要${ME()}写成便签贴到桌面上吗？`, `${open.length} to-dos today. Shall I write them on a sticky note for your desktop?`), {
               ttl: 20000,
               buttons: [
                 { id: 'yes', label: T('贴吧', 'Stick it up') },
@@ -256,7 +256,7 @@ class Proactive {
     const a = { id: pet.uid('al'), kind, refId, text, buttons: buttons || null, options: options || null, count: 0, nextAt: Date.now(), createdAt: Date.now() }
     alerts.push(a)
     pet.store.set('alerts', alerts)
-    if (toast !== false) pet.notify(ALERT_TITLE[kind] || 'Claude Ojousama', String(text).replace(/^[^\n]*\n❓/, '❓'))
+    if (toast !== false) pet.notify(ALERT_TITLE[kind] || NAME(), String(text).replace(/^[^\n]*\n❓/, '❓'))
     pet.logActivity(kind === 'goal-ask' ? 'ask' : 'remind', text)
     setTimeout(() => this.deliverAlerts(Date.now()), 50)
     return a
@@ -328,7 +328,7 @@ class Proactive {
       await pet.motion.shake(450, 6)
       await sleep(200)
       await pet.motion.shake(450, 6)
-      pet.notify(T('本小姐还在等你回应', 'Still waiting for your answer'), String(a.text).replace(/^[^\n]*\n❓/, '❓'))
+      pet.notify(T(`${ME()}还在等你回应`, 'Still waiting for your answer'), String(a.text).replace(/^[^\n]*\n❓/, '❓'))
     }
     pet.once(count === 1 || !urgent ? 'wave' : 'sulk', 2)
     const buttons = a.buttons || ALERT_BUTTONS[a.kind] || [{ id: 'ok', label: T('知道啦', 'Got it') }]
@@ -412,7 +412,7 @@ class Proactive {
     const lines = [
       ...pending.map((a) => `${ALERT_ICON[a.kind] || '🔔'} ${clip(String(a.text).split('\n').pop().replace(/^❓\s*/, ''), 26)}`),
       ...reports.map((g) => T(`🎯「${clip(g.title, 14)}」有新进展`, `🎯 "${clip(g.title, 14)}" has news`)),
-      ...(inbox ? [T(`💡 你不在的时候，本小姐准备了 ${inbox} 件事，等下再说`, `💡 I prepared ${inbox} thing(s) while you were away; more on that later`)] : []),
+      ...(inbox ? [T(`💡 你不在的时候，${ME()}准备了 ${inbox} 件事，等下再说`, `💡 I prepared ${inbox} thing(s) while you were away; more on that later`)] : []),
     ]
     this.showing = 'catchup'
     pet.once('wave', 2)

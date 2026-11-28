@@ -6,7 +6,7 @@
 // small idle action (incl. sitting on the taskbar edge or climbing onto your window).
 // Talking is rate-limited per autonomy level and backs off when she keeps being ignored.
 const senses = require('./senses')
-const { LINES, pick } = require('./persona')
+const { LINES, pick, me: ME } = require('./persona')
 const { T } = require('./i18n')
 
 const SEC = 1000
@@ -323,7 +323,7 @@ class Brain {
     if (now - this.lastSongSaid > 20 * MIN && Math.random() < 0.6 && this.canSpeak()) {
       this.lastSongSaid = now
       this.noteSpoke()
-      pet.say(T(`在听《${song}》？……品味还行，本小姐也跟着晃一下♪`, `Listening to "${song}"? …Decent taste. I'll sway along a little ♪`), { ttl: 5000 })
+      pet.say(T(`在听《${song}》？……品味还行，${ME()}也跟着晃一下♪`, `Listening to "${song}"? …Decent taste. I'll sway along a little ♪`), { ttl: 5000 })
     }
     return true
   }

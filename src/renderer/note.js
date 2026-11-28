@@ -75,8 +75,15 @@ function flash() {
   setTimeout(() => document.body.classList.remove('flash'), 1100)
 }
 
+/** Her signature at the bottom of the note (it depends on who she is). */
+function signAs(name) {
+  if (!name) return
+  for (const el of document.querySelectorAll('.sign')) el.textContent = `— ${name}${el.closest('#todo-view') ? ' ✎' : ''}`
+}
+
 async function init() {
   const data = await pet.invoke('note:init')
+  signAs(data.sign)
   $('paper').classList.remove('hidden')
   if (data.kind === 'memo') {
     document.body.classList.add('memo')
@@ -89,6 +96,7 @@ async function init() {
   $('todo-view').classList.remove('hidden')
   renderTodos(data, data.writing)
   pet.on('note:state', (s) => {
+    signAs(s.sign)
     renderTodos(s, false)
     if (s.flash) flash()
   })

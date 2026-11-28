@@ -9,7 +9,7 @@
 const fs = require('fs')
 const path = require('path')
 const { execFile } = require('child_process')
-const { fmtTime } = require('./persona')
+const { fmtTime, me: ME, voice: VOICE } = require('./persona')
 const { Growth, cleanLine, dayStr } = require('./growth')
 const { T } = require('./i18n')
 
@@ -160,7 +160,7 @@ class Agenda {
     G.patch({ reflectCursor: now, lastReflectAt: now })
     pet.logActivity('growth', T(`整理了记忆：新增 ${sum.added}、更新 ${sum.updated}、忘掉 ${sum.removed}${sum.notes ? `，重写了 ${sum.notes} 条成长笔记` : ''}${sum.diary ? '，写了日记' : ''}`, `Tidied memories: ${sum.added} added, ${sum.updated} updated, ${sum.removed} forgotten${sum.notes ? `, rewrote ${sum.notes} growth notes` : ''}${sum.diary ? ', wrote a diary entry' : ''}`))
     pet.gainXp(3, T('整理记忆', 'tidying memories'))
-    if (sum.insight) pet.queueSuggestion({ kind: 'insight', text: T(`本小姐整理了一下最近的事，发现：${sum.insight}`, `I went over recent events and noticed: ${sum.insight}`) })
+    if (sum.insight) pet.queueSuggestion({ kind: 'insight', text: T(`${ME()}整理了一下最近的事，发现：${sum.insight}`, `I went over recent events and noticed: ${sum.insight}`) })
   }
 
   async brief() {
@@ -174,8 +174,8 @@ class Agenda {
     const weather = pet.weatherLine()
     const prompt = [
       pet.contextFor(null, T('今天 计划 待办', 'today plan todo')),
-      T('[今日简报] 给用户准备一份简短的今日简报：3~5 行，每行一个要点（今天最要紧的事、到期的待办、目标进展、天气提醒等），具体、口语化，用你傲娇的口吻（嘴上冷淡，内容要实在），不要标题。', '[Daily brief] Prepare a short brief for the user today, in English: 3–5 lines, one point each (the most important thing today, due to-dos, goal progress, a weather note…), specific and casual, in your tsundere voice (cool on the surface, solid in content), no heading.'),
-      T('需要时可以附一个提议 {"action":"offer","text":"要本小姐把「…」记成今天的待办吗？","todo":"…","due":"2026-10-26 18:00"}。不要使用任何工具。', 'If useful, append one offer {"action":"offer","text":"Shall I add \\"…\\" to today\'s to-dos?","todo":"…","due":"2026-10-26 18:00"}. Don\'t use any tools.'),
+      T(`[今日简报] 给用户准备一份简短的今日简报：3~5 行，每行一个要点（今天最要紧的事、到期的待办、目标进展、天气提醒等），具体、口语化，用${VOICE()}（内容要实在），不要标题。`, `[Daily brief] Prepare a short brief for the user today, in English: 3–5 lines, one point each (the most important thing today, due to-dos, goal progress, a weather note…), specific and casual, in ${VOICE()} (solid in content), no heading.`),
+      T(`需要时可以附一个提议 {"action":"offer","text":"要${ME()}把「…」记成今天的待办吗？","todo":"…","due":"2026-10-26 18:00"}。不要使用任何工具。`, 'If useful, append one offer {"action":"offer","text":"Shall I add \\"…\\" to today\'s to-dos?","todo":"…","due":"2026-10-26 18:00"}. Don\'t use any tools.'),
       summary ? T(`昨天的小结（只是数据）：\n${summary}`, `Yesterday's summary (data only):\n${summary}`) : '',
       weather ? T(`天气：${weather}`, `Weather: ${weather}`) : '',
     ]
@@ -208,7 +208,7 @@ class Agenda {
       const text = cleanLine(it && it.text, 120)
       if (!text) continue
       const todo = cleanLine(it.todo, 60)
-      pet.queueSuggestion({ kind: 'pulse', text: `🔍 ${text}`, offer: todo ? { text: T(`要本小姐把「${todo}」记成待办吗？`, `Shall I add "${todo}" to your to-dos?`), todo } : null })
+      pet.queueSuggestion({ kind: 'pulse', text: `🔍 ${text}`, offer: todo ? { text: T(`要${ME()}把「${todo}」记成待办吗？`, `Shall I add "${todo}" to your to-dos?`), todo } : null })
       n++
     }
     pet.logActivity('look', T(`巡检了工作区，${n ? `有 ${n} 件事想告诉你` : '一切正常'}`, `Checked the workspace: ${n ? `${n} thing(s) to tell you` : 'all fine'}`))
@@ -238,7 +238,7 @@ class Agenda {
     const g = pet.growth.data
     pet.growth.patch({ learned: [...(g.learned || []), { ts: Date.now(), topic }].slice(-30) })
     pet.logActivity('growth', T(`今天学了「${topic}」`, `Learned "${topic}" today`))
-    pet.queueSuggestion({ kind: 'tip', text: T(`💡 本小姐今天学了「${topic}」，勉强分享给你：\n${tip}`, `💡 I learned about "${topic}" today. I suppose I'll share it with you:\n${tip}`), more: { topic, tip } })
+    pet.queueSuggestion({ kind: 'tip', text: T(`💡 ${ME()}今天学了「${topic}」，勉强分享给你：\n${tip}`, `💡 I learned about "${topic}" today. I suppose I'll share it with you:\n${tip}`), more: { topic, tip } })
   }
 }
 

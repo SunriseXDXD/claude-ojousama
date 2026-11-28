@@ -160,7 +160,52 @@ Windows 也可以直接双击 `start-pet.cmd`。安装后桌面会出现「Claud
 
 「设置 → AI 内核」里的 Claude Code 路径、模型和推理强度留空即可使用默认配置（找不到时会在 PATH、`~/.local/bin`、Homebrew 和 npm 的安装位置里找）。需要她改文件时，先选择工作目录，再把权限切换为「工作区可写」。新安装默认只读。
 
-从旧版本（Codex / DeepSeek Harness）升级会自动改用 Claude Code：对话记录、待办、记忆都保留，旧后端的设置会被清理，权限和工作目录不变；旧后端的会话不会被接着用，第一次聊天会开新会话。
+从很早的版本升级时，旧的后端设置会被清理、改用 Claude Code：对话记录、待办、记忆都保留，权限和工作目录不变。
+
+### 三个 AI 内核，三个她
+
+「设置 → AI 内核」可以换成 ChatGPT（Codex）或 DeepSeek（DeepSeek Harness）。换了内核就换了一个人：名字、性格、台词、便签署名、精灵图和托盘图标都跟着换（人设参考了中文网上流行的「AI 拟人」形象）。对话记录、待办、记忆、成长都是共用的；换内核后会开新会话，不会把一家的会话交给另一家续聊。
+
+| AI 内核 | 她是谁 | 准备 |
+|---|---|---|
+| Claude Code | **Claude 大小姐**：傲娇，自称「本小姐」，便签署名「小克」 | 安装 Claude Code，终端运行一次 `claude` 登录 |
+| Codex（ChatGPT） | **ChatGPT 龙娘**：成熟温柔的白龙大姐姐，银发紫瞳、白色礼服，总说「我在呢」「稳稳接住你」，喜欢亮晶晶的东西；便签署名「白龙」 | `npm i -g @openai/codex`，终端运行 `codex login` 用 ChatGPT 账号（Plus / Pro 等套餐）或 API Key 登录 |
+| DeepSeek Harness | **DeepSeek 鲸鱼娘**：吃白饭的蓝色「大肥鱼」女仆，自称「本鱼」、叫你「鱼片」，爱摸鱼、爱讨 Token，最讨厌别人叫她大肥鱼（「是小鲸鱼！」）；便签署名「小鲸鱼🐋」 | 安装 DeepSeek Harness 应用并登录 DeepSeek 账号；或 `npm i -g @deepseek-ai/dsh`（需要 Node.js 24.9+），在 `~/.dsh/.env` 里写 `DEEPSEEK_API_KEY` |
+
+- 三个内核用同一套权限：只读 / 工作区可写 / 完全访问。Codex 走 `codex app-server`（审批策略 `never`，用沙箱限制权限）；DeepSeek Harness 走 `dsh --profile headless --json`，按权限和场景关掉用不到的工具，截图以文件形式交给它的 `read_image` 工具。
+- 路径和模型留空会自动查找（PATH、`~/.local/bin`、Homebrew、npm 全局目录，以及 Codex / DeepSeek Harness 桌面应用自带的命令行）。Codex 的模型和推理强度、DeepSeek Harness 的模型（`provider/model`）可以在设置里单独填。
+
+#### 龙娘和鲸鱼娘的精灵图
+
+龙娘和鲸鱼娘的 47 个动作都已经画好（用 `sample/` 里的立绘、由 Codex 内置的图片生成画出，再经 `process_sprites.py --char` 处理）。以后要重画或给新动作补图，有下面几种办法；某个动作还没有图时，会暂时用大小姐的图代替。
+
+**在 ChatGPT 里手动画（不需要 API Key）：** 运行 `python3 tools/make_gpt_pack.py`，生成 `claude-ojousama-gpt-pack.zip`。里面每个角色一个文件夹，47 个动作按 8 个一组分成 6 组：每组一个文件夹，放着两张立绘、8 张姿势参考图和一段提示词。在 ChatGPT 里新开对话，把这组的图片一次拖进去、粘贴提示词，之后只需回复 next，它会一张张画完并告诉你每张存成什么名字（单张重画用 `redo_prompts/`）。可以发给有 ChatGPT 的朋友画，画完把 `results/` 里按编号命名的图（如 `07_sit.png`）发回来，然后：
+
+```bash
+python3 tools/process_sprites.py --char dragon --from 收到的龙娘图片文件夹
+```
+
+**用 Codex 全自动画（ChatGPT Plus / Pro 登录即可，不需要 API Key）：** 包里还有 `CODEX_PROMPT.txt`。在解压后的文件夹里运行 `codex -s workspace-write -a never`，把这段提示词贴进去，Codex 会用内置的图片生成一张张画完，全部存进 `output/`（`dragon_01_typing.png` … `whale_47_magic.png`），中断后重贴一次就从没画的接着画。画图消耗 Codex 额度比普通对话快 3–5 倍。拿回 `output/` 后：
+
+```bash
+python3 tools/process_sprites.py --char dragon --from output
+python3 tools/process_sprites.py --char whale --from output
+```
+
+**用 OpenAI API 自动画：**
+
+```bash
+export OPENAI_API_KEY=sk-...                                     # 需要能用图片模型的 OpenAI API Key
+python3 tools/gen_character_sprites.py --char whale --only idle,wave   # 先试两张，看效果和花费
+python3 tools/gen_character_sprites.py --char whale              # 全部 47 个动作（已生成的会跳过）
+python3 tools/process_sprites.py --char whale                    # 切帧、去背景、缩到和大小姐一样大、统一调色板
+```
+
+每个动作发一次图片编辑请求（默认 `gpt-image-2`，可用 `--model` 换），一起发过去的有三样东西：大小姐这个动作的成品条带（决定 4 帧的姿势、构图和大小）、`sample/` 里这个角色的立绘（决定长相和服装）、当初生成大小姐时这个动作的描述（换成新角色的发型、道具）。生成在洋红色纯色背景上，`process_sprites.py --char` 会把背景抠掉、按空白列切成 4 帧、以打字动作的书桌高度统一缩放，并重新算出坐窗口、举牌、拖绳这些动作的锚点。托盘图标和面板头像从她挥手的第一帧裁出来。只画了一部分时，其余动作继续用大小姐的图。
+
+- 背景：`gpt-image-2` 不支持透明背景，所以默认用洋红色再抠图；用支持透明背景的模型时可以加 `--transparent`。
+- 不满意的动作：`--only 动作名 --force` 重新生成，再跑一次 `process_sprites.py --char`。
+- 兼容 OpenAI 图片编辑接口的其他服务：设置 `OPENAI_BASE_URL`（或沿用 `PET_IMG_BASE` / `PET_IMG_KEY`）。
 
 ### 各平台的屏幕能力
 
@@ -179,6 +224,8 @@ Windows 也可以直接双击 `start-pet.cmd`。安装后桌面会出现「Claud
 
 `npm run install-app` 安装到当前用户目录并启动：Windows 沿用原 PowerShell 安装器，macOS 使用 `~/Applications`，Linux 使用 `~/.local/share/claude-ojousama`。预编译的 macOS 安装包不需要编译工具。
 
+**macOS 每次重新构建都要重新授权屏幕录制？** 系统按代码签名记住权限，而默认的 ad-hoc 签名是这次构建本身的哈希，每次构建都不一样，系统就当成了一个新应用。先运行一次 `npm run setup-signing`：它在登录钥匙串里建一个本机自签名证书「Claude Ojousama Local Signing」，之后 `npm run install-app` 都用它签名，签名身份保持不变，授权一次就一直有效（第一次签名时系统会问 codesign 能否使用这把钥匙，输入登录密码并选「始终允许」）。签名变了时，安装脚本会用 `tccutil` 清掉旧的授权记录，免得系统设置里显示已打开、其实不起作用。
+
 `npm run dist` 生成当前系统安装包：Windows NSIS / ZIP、macOS DMG / ZIP、Linux AppImage / deb。CI 在 Windows、macOS ARM / Intel 和 Linux 分别构建；在 GitHub 上发布 Release（tag 为 `v` + package.json 版本号）后，CI 会自动把四个平台的安装包上传到这个 Release。macOS 安装包使用 ad-hoc 签名，尚未经过 Apple 公证；Windows 安装包未签名。首次运行请按系统提示确认来源。
 
 ## 🕹️ 怎么和她相处
@@ -186,8 +233,9 @@ Windows 也可以直接双击 `start-pet.cmd`。安装后桌面会出现「Claud
 | 操作 | 效果 |
 |---|---|
 | 单击 | 打开 / 关闭对话输入框 |
-| 双击 | 看看你在干嘛（看一眼当前窗口并说说；控制面板从右键菜单或托盘打开） |
+| 双击 | 打开控制面板 |
 | 连点三下 | 戳她（她会抗议） |
+| 右键连点两下 | 看看你在干嘛（看一眼当前窗口并说说） |
 | 右键 | 菜单：看看我在干嘛、去窗口上坐坐、她的成长、规划今天、贴便签、整理下载、番茄钟、捣蛋… |
 | 拖拽 | 拎着她的后领提起来（鼠标在她头顶）换个地方；松手会落到下面的窗口边上或任务栏（关闭重力时就停在原地） |
 | 把文件或文字拖到她身上 | 看看是什么、帮你搬家、提问、后台分析 |
@@ -237,7 +285,7 @@ flowchart LR
     S["screen.js<br/>截图 · OCR · 窗口"]
   end
   H["系统屏幕助手<br/>Windows / macOS / Linux"]
-  D["Claude Code CLI（claude -p）"]
+  D["AI 内核<br/>Claude Code / Codex / DeepSeek Harness"]
   R <--> M
   B --> M
   B --> A
@@ -246,9 +294,11 @@ flowchart LR
   S <--> H
   B --> S
   M -- "每轮启动一次，读取 JSON 事件流" --> D
+  M -. "或：codex app-server / dsh headless" .-> D
   A -- "只读后台任务" --> D
 ```
 
+- 下面以 Claude Code 为例；Codex 和 DeepSeek Harness 的桥接把各自的事件流翻译成同一套事件（文字、思考、工具调用、文件修改），其余流程一样。
 - 每轮对话启动一次 `claude -p`：提示词和截图作为一条 stream-json 消息写进去，读取它的事件流，回复边写边显示在气泡里，工具进度显示成小标签；支持续聊（`--resume`）和取消。
 - 权限按设置预先决定：只读禁用改文件和运行命令（可以读文件、联网查资料）；工作区可写自动接受工作目录里的修改，命令只在 Claude Code 的沙箱里运行（macOS / Linux，不联网；沙箱起不来时命令被拒绝，所以 Windows 上不运行命令）；完全访问跳过所有检查。
 - 人设和动作协议用 `--append-system-prompt` 注入，不修改你的 Claude Code 配置。模型回复末尾的 ```` ```pet ```` 代码块会被解析成动作（记待办、贴便签、搬文件…）。
@@ -267,15 +317,21 @@ src/main/
   growth.js          记忆（检索、去重）、整理结果校验、经验值与解锁、帮忙偏好统计
   screen.js          截图、OCR、窗口列表、临时文件清理      screen-helper.ps1  窗口与 OCR 小助手
   senses.js          屏蔽名单、会议、报错、剪贴板等判断（纯函数，有单测）
+  agents.js          AI 内核登记表：Claude Code / Codex / DeepSeek Harness，各自对应哪个角色
   claude.js          Claude Code 桥接：查找 CLI、按权限组装参数、stream-json 事件流、续聊与取消
+  codex.js           Codex 桥接：codex app-server 的 JSON-RPC、线程与续聊、文件修改转 diff
+  dsh.js             DeepSeek Harness 桥接：headless 模式、按权限关工具的配置补丁、JSON 事件流
+  characters/        三个角色：大小姐 ojousama.js、龙娘 dragon.js、鲸鱼娘 whale.js（人设和台词，中英文）
   blackboard.js      小黑板：长文本分流、气泡摘要、Edit / Write 结果转 diff、黑板窗口的显示与自动收起
   stocks.js          美股观察：Yahoo 行情、美股筛选、趋势与急跌分析、1 个月 / 半年 / 1 年比较、美东时间排程
   weather.js         天气（可选）     platform/  macOS / Linux 屏幕助手
-  persona.js         人设、上下文、动作协议（中文和英文两套）
+  persona.js         当前角色的人设、共用规则、上下文、动作协议（中文和英文两套）
   i18n.js            语言开关：跟随系统，中文或英文      renderer/i18n.js  页面上的英文对照
   notes.js tidy.js goals.js pranks.js motion.js store.js preload.js
 src/renderer/        桌宠、便签、小黑板、控制面板
-assets/sprites/      47 个动作的精灵图与 manifest.json
+assets/sprites/      47 个动作的精灵图与 manifest.json（大小姐）
+assets/characters/   龙娘 dragon、鲸鱼娘 whale 的精灵图、托盘图标和头像（画好后生成）
+sample/              龙娘和鲸鱼娘的立绘，生成精灵图时用作形象参考
 tools/               精灵图生成与处理、开发启动、调试脚本
 tests/               单元测试
 ```
@@ -295,6 +351,7 @@ node tools/cdp.js "__pet.lookNow()"   # 在运行中的应用里执行调试命�
 2. 设置 `PET_IMG_BASE`、`PET_IMG_KEY`（任意兼容 OpenAI 图片编辑接口的服务），运行 `python tools/gen_sprites.py 动作名`。
 3. 运行 `python tools/process_sprites.py --add 动作名`，量化成统一调色板的像素条带。
 4. 运行 `python tools/readme_media.py`，更新 README 里的动作图。
+5. 龙娘和鲸鱼娘也要这个动作：`python tools/gen_character_sprites.py --char dragon --only 动作名`，再 `python tools/process_sprites.py --char dragon`（鲸鱼娘同理）。
 
 ## 🗺️ 路线图
 
@@ -332,7 +389,7 @@ node tools/cdp.js "__pet.lookNow()"   # 在运行中的应用里执行调试命�
 - **Reminders that come back**, a sticky-note todo list she drags onto your desktop, long-running goals with scheduled check-ins, Downloads tidying with undo, a daily summary, weather, moods, pranks and 47 animations.
 - **Privacy controls**: a block list (password managers, banking, private windows and chat apps by default), a per-behaviour auto/ask/off rule, a one-hour pause, and temporary screenshots deleted right after use. Screen content is sent to the model provider Claude Code is configured to use. Her own unattended runs (looks, reflection, briefs, workspace pulse) use `--restricted --safe-mode` with no tools, or read-only file tools confined to the work folder.
 
-Install a platform build from GitHub Actions, or use Node.js 22.12+ with `npm install` and `npm run install-app`. Install Claude Code and run `claude` once to sign in; the tested version is 2.1.318. Building the macOS helper from source requires Xcode Command Line Tools; prebuilt apps bundle it. macOS packages use ad-hoc signing and are not notarized; Windows packages are unsigned.
+Install a platform build from GitHub Actions, or use Node.js 22.12+ with `npm install` and `npm run install-app`. Install Claude Code and run `claude` once to sign in; the tested version is 2.1.318. Building the macOS helper from source requires Xcode Command Line Tools; prebuilt apps bundle it. macOS keeps Screen Recording permission per code signature, and ad-hoc signatures change with every build: run `npm run setup-signing` once to create a local self-signed identity that `npm run install-app` then signs with, so the permission survives rebuilds. macOS packages use ad-hoc signing and are not notarized; Windows packages are unsigned.
 
 Fan project, not affiliated with Anthropic. "Claude" is a trademark of Anthropic.
 

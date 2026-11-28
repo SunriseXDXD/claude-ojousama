@@ -10,7 +10,7 @@
     <header>
       <img src="../../assets/icon.png" alt="" class="avatar" />
       <div class="title">
-        <b>Claude Ojousama</b>
+        <b id="char-name">Claude Ojousama</b>
         <span><span id="status">在线</span> <span id="mood" class="muted"></span></span>
       </div>
       <nav>
@@ -196,28 +196,61 @@
         <label class="check"><input data-key="boardAuto" type="checkbox" />长回复和改过的代码写到小黑板上（气泡只留开头一两句）</label>
         <label>黑板没人看时，多少秒后自动收起（0 = 不自动收起）<input data-key="boardHideSeconds" type="number" min="0" max="3600" /></label>
 
-        <h3>AI 内核 · Claude Code</h3>
-        <p id="backend-status" class="muted" role="status" aria-live="polite"></p>
-        <label>Claude Code 路径
-          <div class="row"><input data-key="claudeExe" placeholder="留空自动查找 claude" /><button type="button" id="pick-claude">选择</button></div>
-        </label>
-        <label>模型<input data-key="claudeModel" list="claude-models" placeholder="留空使用 Claude Code 默认模型" /></label>
-        <datalist id="claude-models">
-          <option value="sonnet"></option>
-          <option value="opus"></option>
-          <option value="haiku"></option>
-        </datalist>
-        <label>推理强度
-          <select data-key="claudeEffort">
-            <option value="">跟随 Claude Code 默认</option>
-              <option value="low">低</option>
-              <option value="medium">中</option>
-              <option value="high">高</option>
-              <option value="xhigh">超高</option>
-              <option value="max">最高</option>
+        <h3>AI 内核</h3>
+        <label>用哪个 AI（换 AI 就换了一个她）
+          <select data-key="backend">
+            <option value="claude">Claude Code · Claude 大小姐（傲娇大小姐）</option>
+            <option value="codex">Codex · ChatGPT 龙娘（成熟温柔的白龙）</option>
+            <option value="dsh">DeepSeek Harness · DeepSeek 鲸鱼娘（吃白饭的大肥鱼）</option>
           </select>
         </label>
-        <p class="muted">使用 Claude Code 的登录状态；首次使用请先在终端运行 <code>claude</code> 完成登录。</p>
+        <p id="backend-status" class="muted" role="status" aria-live="polite"></p>
+        <div class="backend-fields" data-backend="claude">
+          <label>Claude Code 路径
+            <div class="row"><input data-key="claudeExe" placeholder="留空自动查找 claude" /><button type="button" class="pick-agent" data-target="claudeExe">选择</button></div>
+          </label>
+          <label>模型<input data-key="claudeModel" list="claude-models" placeholder="留空使用 Claude Code 默认模型" /></label>
+          <datalist id="claude-models">
+            <option value="sonnet"></option>
+            <option value="opus"></option>
+            <option value="haiku"></option>
+          </datalist>
+          <label>推理强度
+            <select data-key="claudeEffort">
+              <option value="">跟随 Claude Code 默认</option>
+                <option value="low">低</option>
+                <option value="medium">中</option>
+                <option value="high">高</option>
+                <option value="xhigh">超高</option>
+                <option value="max">最高</option>
+            </select>
+          </label>
+          <p class="muted">使用 Claude Code 的登录状态；首次使用请先在终端运行 <code>claude</code> 完成登录。</p>
+        </div>
+        <div class="backend-fields" data-backend="codex">
+          <label>Codex 路径
+            <div class="row"><input data-key="codexExe" placeholder="留空自动查找 codex" /><button type="button" class="pick-agent" data-target="codexExe">选择</button></div>
+          </label>
+          <label>模型<input data-key="codexModel" placeholder="留空使用 Codex 默认模型" /></label>
+          <label>推理强度
+            <select data-key="codexEffort">
+              <option value="">跟随 Codex 默认</option>
+                <option value="minimal">最低</option>
+                <option value="low">低</option>
+                <option value="medium">中</option>
+                <option value="high">高</option>
+                <option value="xhigh">超高</option>
+            </select>
+          </label>
+          <p class="muted">使用 Codex 的登录状态：先安装（<code>npm i -g @openai/codex</code>），再在终端运行 <code>codex login</code> 用 ChatGPT 账号登录。</p>
+        </div>
+        <div class="backend-fields" data-backend="dsh">
+          <label>DeepSeek Harness 路径
+            <div class="row"><input data-key="dshExe" placeholder="留空自动查找 dsh 或 DeepSeek Harness 应用" /><button type="button" class="pick-agent" data-target="dshExe">选择</button></div>
+          </label>
+          <label>模型<input data-key="dshModel" placeholder="留空使用默认，或写 provider/model" /></label>
+          <p class="muted">使用 DeepSeek Harness 应用里的 DeepSeek 账号登录；也可以在 <code>~/.dsh/.env</code> 里写 <code>DEEPSEEK_API_KEY</code>。命令行版需要 Node.js 24.9 以上（<code>npm i -g @deepseek-ai/dsh</code>）。</p>
+        </div>
         <label>权限
           <select data-key="permission">
             <option value="read-only">只读：能读文件、查资料，不能改文件或运行命令</option>
@@ -316,6 +349,7 @@
         <p id="weather-state" class="muted"></p>
         <label class="check"><input data-key="updateCheck" type="checkbox" />有新版本时告诉我（只查 GitHub Releases，不会自动下载）</label>
         <div class="row"><span id="update-state" class="muted grow"></span><button type="button" id="update-check">检查更新</button></div>
+        <div class="backend-fields" data-backend="claude">
         <label>看屏和后台任务的模型<input data-key="claudeGlanceModel" list="claude-models" placeholder="留空跟随聊天模型（例如 haiku 更快更省）" /></label>
         <label>看屏和后台任务的推理强度
           <select data-key="claudeGlanceEffort">
@@ -327,6 +361,7 @@
               <option value="max">最高</option>
           </select>
         </label>
+        </div>
         <div class="row">
           <button type="button" id="look-now" class="primary" data-requires="manualCapture">👀 看看我在干嘛</button>
           <button type="button" id="screen-pause">1 小时内别看</button>

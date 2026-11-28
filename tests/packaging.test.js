@@ -77,7 +77,26 @@ try {
   const delivered = path.join(syncedRoot, 'dist')
   assert.deepEqual(deliverArchives(output, delivered).sort(), ['release.dmg', 'release.zip'])
   assert.deepEqual(fs.readdirSync(delivered).sort(), ['release.dmg', 'release.zip'])
-  console.log('PASS portable packaging targets, user-local install/update, recovery and desktop quoting')
+  // Local macOS signing: find the stable identity (trusted or not) and the loose executables to sign.
+  const signing = require('../tools/mac-signing')
+  const found = [
+    'Policy: Code Signing',
+    '  Matching identities',
+    '  1) 0123456789ABCDEF0123456789ABCDEF01234567 "Apple Development: someone (X)"',
+    '  2) AAAABBBBCCCCDDDDEEEEFFFF0000111122223333 "Claude Ojousama Local Signing" (CSSMERR_TP_NOT_TRUSTED)',
+    '     2 identities found',
+  ].join('\n')
+  assert.equal(signing.parseIdentity(found), 'AAAABBBBCCCCDDDDEEEEFFFF0000111122223333')
+  assert.equal(signing.parseIdentity(found, 'Claude Ojousama'), null)
+  assert.equal(signing.parseIdentity('0 identities found'), null)
+  const res = path.join(dir, 'App.app', 'Contents', 'Resources', 'app', 'bin')
+  fs.mkdirSync(res, { recursive: true })
+  fs.writeFileSync(path.join(res, 'screen-helper'), Buffer.from('cffaedfe07000001', 'hex'), { mode: 0o755 })
+  fs.writeFileSync(path.join(res, 'script.sh'), '#!/bin/sh\n', { mode: 0o755 })
+  fs.writeFileSync(path.join(res, 'data.bin'), Buffer.from('cffaedfe', 'hex'), { mode: 0o644 })
+  assert.deepEqual(signing.looseBinaries(path.join(dir, 'App.app', 'Contents', 'Resources')), process.platform === 'win32' ? [] : [path.join(res, 'screen-helper')])
+  assert.equal(pkg.scripts['setup-signing'], 'node tools/mac-signing.js')
+  console.log('PASS portable packaging targets, user-local install/update, recovery, desktop quoting and local macOS signing')
 } finally {
   fs.rmSync(dir, { recursive: true, force: true })
 }

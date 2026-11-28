@@ -98,6 +98,22 @@ function lineDiff(before, after, context = 3) {
   return hunks
 }
 
+/** A unified diff (Codex file changes) → [{ oldStart, newStart, lines }] hunks; headers and notes are skipped. */
+function structuredFromUnified(diff) {
+  const hunks = []
+  let cur = null
+  for (const line of String(diff || '').split(/\r?\n/)) {
+    const m = line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/)
+    if (m) {
+      cur = { oldStart: Number(m[1]), newStart: Number(m[2]), lines: [] }
+      hunks.push(cur)
+    } else if (cur && /^[ +-]/.test(line) && !/^(---|\+\+\+) /.test(line)) cur.lines.push(line)
+    else if (cur && line === '') cur.lines.push(' ')
+  }
+  for (const h of hunks) while (h.lines.length && h.lines[h.lines.length - 1] === ' ') h.lines.pop() // the diff's final newline
+  return hunks.filter((h) => h.lines.length)
+}
+
 /**
  * What Claude Code reports after an Edit / Write (`tool_use_result`) → { file, created, hunks, add, del, cut }.
  * Edits come with a structured patch; a new file is all additions; older shapes fall back to a line diff.
@@ -314,4 +330,4 @@ class Blackboard {
   }
 }
 
-module.exports = { Blackboard, needsBoard, briefOf, lineDiff, patchFromResult, LONG_CHARS, MAX_DIFF_LINES }
+module.exports = { Blackboard, needsBoard, briefOf, lineDiff, patchFromResult, structuredFromUnified, LONG_CHARS, MAX_DIFF_LINES }

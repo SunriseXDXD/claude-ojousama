@@ -1,7 +1,7 @@
 'use strict'
 // Local, free "mischief" routines. Each receives the pet controller from main.js.
 const { screen } = require('electron')
-const { LINES, FAKE_FILES, pick } = require('./persona')
+const { LINES, FAKE_FILES, pick, me: ME } = require('./persona')
 const { T } = require('./i18n')
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -82,7 +82,7 @@ async function hide(pet) {
   await pet.motion.walkTo(home.x, 110)
   pet.release()
   pet.once('surprise', 1)
-  pet.say(T('找到本小姐了？……哼，算你厉害。', 'You found me? …Hmph, not bad.'), { ttl: 2500 })
+  pet.say(T(`找到${ME()}了？……哼，算你厉害。`, 'You found me? …Hmph, not bad.'), { ttl: 2500 })
 }
 
 async function dance(pet) {

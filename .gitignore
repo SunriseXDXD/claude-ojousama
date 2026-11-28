@@ -6,6 +6,7 @@ __pycache__/
 
 # raw image-model output (~1.5 MB each); the processed sprites in assets/sprites are what the app uses
 assets/raw/
+assets/characters/*/raw/
 # the character reference used for sprite generation is not redistributed
 assets/reference/
 
@@ -21,3 +22,5 @@ _*.jpg
 
 # generated promo media (rebuild with python tools/promo/cards.py / video.py)
 /promo/
+claude-ojousama-gpt-pack.zip
+/output/

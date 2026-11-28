@@ -56,10 +56,21 @@ function main(args = process.argv.slice(2)) {
   let target, executable
   if (process.platform === 'darwin') {
     target = installTarget()
+    const { signer } = require('./mac-signing')
+    const before = fs.existsSync(target) ? signer(target) : null
     replaceApp(source, target, (dir) => {
       const plist = path.join(dir, 'Contents', 'Info.plist')
       return fs.existsSync(plist) && fs.readFileSync(plist, 'utf8').includes(`<string>${APP_ID}</string>`)
     })
+    // A permission granted to another signature no longer applies, but System Settings would still show
+    // it switched on. Clear it so the app asks again and the switch means what it says.
+    const after = signer(target)
+    if (before !== null && (!after || after !== before)) {
+      const reset = spawnSync('tccutil', ['reset', 'ScreenCapture', APP_ID], { stdio: 'ignore' })
+      console.log(reset.status === 0
+        ? 'Screen recording permission reset for the new signature: allow Claude Ojousama again when asked.' + (after ? ' Later rebuilds keep it.' : ' (Run `npm run setup-signing` once to stop this on every rebuild.)')
+        : 'The signature changed: if screen looks stop working, allow Claude Ojousama again in System Settings → Privacy & Security → Screen & System Audio Recording.')
+    }
   } else {
     target = installTarget()
     replaceApp(source, target, (dir) => {

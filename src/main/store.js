@@ -6,6 +6,12 @@ const { T } = require('./i18n')
 
 const DEFAULTS = {
   settings: {
+    backend: 'claude', // AI core, and with it her character: claude (Claude 大小姐) | codex (ChatGPT 龙娘) | dsh (DeepSeek 鲸鱼娘)
+    codexExe: '', // '' -> look for `codex` on PATH and in the usual install folders
+    codexModel: '', // '' -> Codex's default model
+    codexEffort: '', // '' -> default; minimal | low | medium | high | xhigh
+    dshExe: '', // '' -> `dsh` on PATH, else the DeepSeek Harness app
+    dshModel: '', // '' -> DeepSeek Harness's default; or "provider/model"
     claudeExe: '', // '' -> look for `claude` on PATH and in the usual install folders
     claudeModel: '', // '' -> Claude Code's default; an alias (sonnet / opus / haiku) or a full model name
     claudeEffort: '', // '' -> default; low | medium | high | xhigh | max
@@ -74,8 +80,9 @@ const DEFAULTS = {
 }
 
 const DEFAULT_RULES = DEFAULTS.settings.rules
-/** Settings of the removed Codex / DeepSeek Harness backends. */
-const OBSOLETE_SETTINGS = ['backend', 'codexExe', 'codexModel', 'codexEffort', 'codexGlanceModel', 'codexGlanceEffort', 'provider', 'model', 'reasoningEffort', 'sourceProfile', 'dshExe', 'dshWebUrl', 'loadAgentsMd', 'loadSkills', 'glanceModel', 'glanceEffort']
+/** Settings of the old Codex / DeepSeek Harness bridges that no longer mean anything. */
+const OBSOLETE_SETTINGS = ['codexGlanceModel', 'codexGlanceEffort', 'provider', 'model', 'reasoningEffort', 'sourceProfile', 'dshWebUrl', 'loadAgentsMd', 'loadSkills', 'glanceModel', 'glanceEffort']
+const BACKEND_IDS = ['claude', 'codex', 'dsh']
 
 class Store {
   constructor(dir) {
@@ -90,8 +97,9 @@ class Store {
       if (Array.isArray(v)) this.data[k] = Array.isArray(data[k]) ? data[k] : []
       else this.data[k] = { ...v, ...(data[k] || {}) }
     }
-    // Older versions ran on Codex or DeepSeek Harness: drop their settings (permission and work folder stay).
+    // Settings of the old bridges that mean nothing now go; an unknown AI core falls back to Claude Code.
     for (const key of OBSOLETE_SETTINGS) delete this.data.settings[key]
+    if (!BACKEND_IDS.includes(this.data.settings.backend)) this.data.settings.backend = 'claude'
     // Nested defaults: keep rules added in newer versions.
     this.data.settings.rules = { ...DEFAULT_RULES, ...(this.data.settings.rules || {}) }
     this.timer = null
